@@ -1,0 +1,867 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Evaluating a Logistic Regression Classifier</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#F7F8FC; --surface:#FFFFFF; --tint:#EEF0F9; --cool:#EEF6F7;
+  --ink:#23273D; --muted:#6B7280; --line:rgba(35,39,58,.12); --soft:rgba(35,39,58,.05);
+  --accent:#5468C4; --accent2:#3FA8B5; --accent-soft:rgba(84,104,196,.13);
+  --orange:#C1774A; --blue:#4F6FB0;
+  --deep:#1B1E33; --pos:#4FA37D; --pos-soft:rgba(79,163,125,.14);
+  --s1:0 1px 2px rgba(30,34,54,.07),0 8px 24px -14px rgba(84,104,196,.16);
+  --s2:0 6px 16px rgba(30,34,54,.08),0 30px 58px -26px rgba(84,104,196,.22);
+  --disp:'Sora',system-ui,sans-serif; --body:'Inter',system-ui,sans-serif;
+  --mono:'JetBrains Mono',ui-monospace,monospace;
+  --pad:clamp(24px,5vw,84px); --r:18px;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:
+    radial-gradient(1100px 620px at 12% -8%,rgba(84,104,196,.07),transparent 60%),
+    radial-gradient(900px 560px at 100% 10%,rgba(63,168,181,.06),transparent 55%),
+    radial-gradient(800px 500px at 30% 115%,rgba(79,111,176,.05),transparent 55%),
+    var(--bg);
+  color:var(--ink);font-family:var(--body);overflow:hidden;
+  -webkit-font-smoothing:antialiased}
+
+#deck{position:fixed;inset:0;perspective:1600px}
+.slide{position:absolute;inset:0;padding:clamp(56px,8vh,74px) var(--pad) clamp(80px,10vh,94px);
+  overflow-y:auto;opacity:0;visibility:hidden;pointer-events:none;
+  transition:opacity .38s ease,transform .52s cubic-bezier(.22,1,.36,1),visibility .38s}
+.slide.active{opacity:1;visibility:visible;pointer-events:auto;transform:none;display:flex}
+.slide.exit-l{transform:translateX(-4%) scale(.97)}
+.slide.exit-r{transform:translateX(4%) scale(.97)}
+.slide.enter-r{transform:translateX(5%) scale(.98)}
+.slide.enter-l{transform:translateX(-5%) scale(.98)}
+.inner{margin:auto;width:100%;max-width:1180px;display:flex;flex-direction:column;gap:clamp(13px,2.1vh,22px)}
+:fullscreen .inner{max-width:1420px}
+
+.slide.active .go>*{animation:rise .62s cubic-bezier(.22,1,.36,1) backwards}
+.go>*:nth-child(1){animation-delay:.06s}.go>*:nth-child(2){animation-delay:.13s}
+.go>*:nth-child(3){animation-delay:.2s}.go>*:nth-child(4){animation-delay:.27s}
+.go>*:nth-child(5){animation-delay:.34s}.go>*:nth-child(6){animation-delay:.41s}
+.slide.active .go2>*{animation:pop .58s cubic-bezier(.34,1.4,.5,1) backwards}
+.go2>*:nth-child(1){animation-delay:.1s}.go2>*:nth-child(2){animation-delay:.16s}
+.go2>*:nth-child(3){animation-delay:.22s}.go2>*:nth-child(4){animation-delay:.28s}
+.go2>*:nth-child(5){animation-delay:.34s}.go2>*:nth-child(6){animation-delay:.4s}
+@keyframes rise{from{opacity:0;transform:translateY(26px)}to{opacity:1;transform:none}}
+@keyframes pop{from{opacity:0;transform:translateY(20px) scale(.95)}to{opacity:1;transform:none}}
+@keyframes floaty{0%,100%{transform:translateY(0)}50%{transform:translateY(-10px)}}
+@keyframes shimmer{to{background-position:200% center}}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes popIn{from{opacity:0;transform:scale(.7)}to{opacity:1;transform:scale(1)}}
+@keyframes bounce{0%,100%{transform:translateY(0)}50%{transform:translateY(-7px)}}
+@keyframes glowline{0%{filter:drop-shadow(0 0 0 rgba(84,104,196,0))}40%{filter:drop-shadow(0 0 6px rgba(84,104,196,.85))}100%{filter:drop-shadow(0 0 0 rgba(84,104,196,0))}}
+.glow{animation:glowline 1.1s ease}
+
+.eyebrow{font-family:var(--mono);font-size:.71rem;letter-spacing:.16em;text-transform:uppercase;
+  color:var(--accent);display:flex;align-items:center;gap:10px}
+.eyebrow::before{content:"";width:0;height:1px;background:var(--accent);animation:grow .7s .1s cubic-bezier(.22,1,.36,1) forwards}
+@keyframes grow{to{width:24px}}
+h1{font-family:var(--disp);font-weight:800;font-size:clamp(2.6rem,6.4vw,5.4rem);line-height:1.02;
+  letter-spacing:-.045em;margin:0}
+h2{font-family:var(--disp);font-weight:700;font-size:clamp(1.8rem,3.8vw,2.8rem);line-height:1.1;
+  letter-spacing:-.032em;margin:0}
+h3{font-family:var(--disp);font-weight:700;font-size:clamp(1.08rem,1.8vw,1.26rem);letter-spacing:-.017em;margin:0}
+h4{font-family:var(--mono);font-size:.71rem;letter-spacing:.15em;text-transform:uppercase;color:var(--muted);margin:0;font-weight:500}
+p{margin:0;font-size:clamp(1rem,1.4vw,1.12rem);line-height:1.66;color:var(--muted)}
+.lead{font-size:clamp(1.1rem,1.75vw,1.34rem);line-height:1.56;color:var(--ink);max-width:66ch}
+strong{color:var(--ink);font-weight:700}
+.mono{font-family:var(--mono);font-size:.86em}
+.shine{background:linear-gradient(90deg,var(--accent) 10%,var(--accent2) 38%,var(--orange) 60%,var(--accent) 85%);
+  background-size:220% auto;-webkit-background-clip:text;background-clip:text;color:transparent;
+  animation:shimmer 5s linear infinite}
+
+.row{display:flex;gap:clamp(13px,1.7vw,20px);flex-wrap:wrap}
+.grid{display:grid;gap:clamp(11px,1.3vw,15px)}
+.g2{grid-template-columns:repeat(2,1fr)}.g3{grid-template-columns:repeat(3,1fr)}
+.g4{grid-template-columns:repeat(4,1fr)}.g5{grid-template-columns:repeat(5,1fr)}
+.split{display:grid;grid-template-columns:1.05fr .95fr;gap:clamp(20px,3vw,46px);align-items:center}
+.splitw{display:grid;grid-template-columns:1.2fr .8fr;gap:clamp(20px,3vw,40px);align-items:start}
+
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);
+  padding:clamp(14px,1.7vw,20px);box-shadow:var(--s1);
+  transition:transform .3s cubic-bezier(.22,1,.36,1),box-shadow .3s,border-color .3s}
+.card:hover{transform:translateY(-4px);box-shadow:var(--s2)}
+.card.flat{box-shadow:none;background:var(--tint);border-color:transparent}
+.card.cool{background:var(--cool);border-color:transparent;box-shadow:none}
+.card.dark{background:linear-gradient(135deg,#5B62A8 0%,#474D86 45%,#3E7C8C 100%);border-color:transparent;color:#fff;box-shadow:var(--s2)}
+.card.dark h3{color:#fff}.card.dark p{color:rgba(255,255,255,.78)}
+.icon{width:26px;height:26px;color:var(--accent);display:block;margin-bottom:10px;transition:transform .35s}
+.card:hover .icon{transform:scale(1.14) rotate(-4deg)}
+
+.rev{cursor:pointer;text-align:left;font:inherit;color:inherit;width:100%;position:relative}
+.rev:hover{border-color:var(--accent)}
+.rev .body{display:grid;grid-template-rows:0fr;opacity:0;
+  transition:grid-template-rows .42s cubic-bezier(.22,1,.36,1),opacity .32s .06s}
+.rev .body>div{overflow:hidden;min-height:0}
+.rev.open{border-color:var(--accent)}
+.rev.open .body{grid-template-rows:1fr;opacity:1}
+.rev.open .body>div{padding-top:11px}
+.rev .cue{position:absolute;top:15px;right:16px;width:19px;height:19px;border-radius:50%;
+  border:1px solid var(--line);display:grid;place-items:center;transition:.32s}
+.rev .cue::before,.rev .cue::after{content:"";position:absolute;background:var(--muted);transition:.32s}
+.rev .cue::before{width:8px;height:1px}.rev .cue::after{width:1px;height:8px}
+.rev.open .cue{background:var(--accent);border-color:var(--accent);transform:rotate(90deg)}
+.rev.open .cue::before,.rev.open .cue::after{background:#fff}
+.rev.open .cue::after{opacity:0}
+
+.btn{font:inherit;font-family:var(--disp);font-weight:600;font-size:.87rem;padding:10px 19px;border-radius:8px;
+  border:1px solid var(--line);cursor:pointer;background:var(--surface);color:var(--ink);transition:.25s;
+  display:inline-flex;align-items:center;gap:9px}
+.btn:hover{background:var(--accent);color:#fff;border-color:var(--accent);transform:translateY(-2px)}
+.btn.solid{background:linear-gradient(120deg,var(--accent),var(--accent2));color:#fff;border-color:transparent;font-weight:700}
+.btn.solid:hover{filter:brightness(1.12)}
+.pill{display:inline-flex;align-items:center;gap:7px;padding:6px 12px;border-radius:6px;background:var(--tint);
+  font-size:.79rem;font-weight:500;color:var(--ink)}
+.pill.acc{background:var(--accent-soft);color:var(--accent)}
+.pill.pos{background:var(--pos-soft);color:var(--pos)}
+.pill.warn{background:#FBF0EA;color:var(--orange)}
+.quote{border-left:2px solid var(--accent);padding:4px 0 4px 19px;font-size:clamp(1rem,1.5vw,1.2rem);
+  line-height:1.5;color:var(--ink)}
+.takeaway{background:var(--deep);color:#fff;border-radius:var(--r);padding:clamp(14px,1.8vw,20px);box-shadow:var(--s2);
+  display:flex;gap:13px;align-items:flex-start}
+.takeaway .icon{color:var(--accent2);flex:none;margin:0}
+.takeaway strong{color:#fff}
+.takeaway p{color:rgba(255,255,255,.82)}
+.hintline{font-family:var(--mono);font-size:.68rem;color:var(--muted);letter-spacing:.04em}
+
+.hflow{display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+.hflow .fn{flex:1 1 auto;justify-content:center;text-align:center}
+.hflow .ar{color:var(--accent);flex:none}
+.fn{display:flex;align-items:center;gap:11px;padding:11px 14px;border-radius:9px;background:var(--surface);
+  border:1px solid var(--line);font-size:.91rem;font-weight:500;box-shadow:var(--s1)}
+.fn.end{font-weight:600;border-color:transparent;background:linear-gradient(120deg,var(--accent),var(--accent2));color:#fff}
+.fn .icon{margin:0;width:18px;height:18px;flex:none}
+
+.vs{display:grid;grid-template-columns:1fr auto 1fr;gap:16px;align-items:center}
+.vs .mid{font-family:var(--disp);font-weight:700;color:var(--line);font-size:1.1rem}
+.compare-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
+.compare-list li{display:flex;gap:9px;align-items:flex-start;font-size:.92rem;color:var(--ink)}
+.compare-list li::before{content:"—";color:var(--accent);flex:none}
+
+table.dt{width:100%;border-collapse:collapse;font-size:.92rem}
+table.dt th{font-family:var(--mono);font-size:.66rem;text-transform:uppercase;letter-spacing:.08em;
+  color:var(--muted);text-align:left;padding:9px 12px;border-bottom:2px solid var(--line)}
+table.dt td{padding:10px 12px;border-bottom:1px solid var(--soft)}
+table.dt th.feat,table.dt td.feat{background:var(--accent-soft)}
+table.dt th.lab,table.dt td.lab{background:var(--pos-soft)}
+
+.qopt{font:inherit;font-family:var(--disp);font-weight:600;padding:11px 20px;border-radius:9px;
+  border:1px solid var(--line);background:var(--surface);cursor:pointer;transition:.2s}
+.qopt:hover{border-color:var(--accent);transform:translateY(-2px)}
+.qopt.right{background:var(--pos-soft);border-color:var(--pos);color:var(--pos)}
+.qopt.wrong{background:rgba(193,119,74,.14);border-color:var(--orange);color:var(--orange)}
+.scenario{display:none}
+.scenario.active{display:block}
+
+.chapter{display:flex;align-items:center;gap:clamp(18px,4vw,56px);flex-wrap:wrap}
+.chapter .cn{font-family:var(--disp);font-weight:700;font-size:clamp(4.6rem,12vw,9rem);line-height:.8;
+  letter-spacing:-.06em;color:var(--accent);opacity:.22;animation:rise .8s cubic-bezier(.22,1,.36,1)}
+.chapter .txt h2{font-size:clamp(2rem,4.6vw,3.4rem)}
+.chapter .txt p{margin-top:16px;max-width:56ch;font-size:1.14rem;line-height:1.55}
+.chapter .txt .eyebrow{font-size:.8rem}
+
+.rail{position:fixed;top:0;left:0;right:0;height:2px;background:var(--soft);z-index:60}
+.rail i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--accent),var(--accent2));
+  transition:width .5s cubic-bezier(.22,1,.36,1)}
+.brand{position:fixed;top:17px;left:var(--pad);z-index:60;display:flex;align-items:center;gap:9px;
+  font-family:var(--mono);font-size:.67rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.brand svg{width:18px;height:18px;color:var(--accent);animation:spin 26s linear infinite}
+.chap{position:fixed;top:17px;right:var(--pad);z-index:60;font-family:var(--mono);font-size:.67rem;
+  letter-spacing:.12em;text-transform:uppercase;color:var(--accent);transition:opacity .3s}
+.ctrl{position:fixed;bottom:17px;right:var(--pad);z-index:60;display:flex;align-items:center;gap:7px}
+.ctrl button{width:33px;height:33px;border-radius:7px;border:1px solid var(--line);background:var(--surface);
+  cursor:pointer;color:var(--ink);display:grid;place-items:center;transition:.22s}
+.ctrl button:hover{background:var(--accent);color:#fff;border-color:var(--accent);transform:translateY(-2px)}
+.ctrl button:disabled{opacity:.28;background:var(--surface);color:var(--ink);cursor:default;transform:none}
+.ctrl .ct{font-family:var(--mono);font-size:.69rem;color:var(--muted);margin-right:6px}
+.ctrl svg{width:14px;height:14px}
+.prog{position:fixed;bottom:21px;left:var(--pad);z-index:60;display:flex;gap:4px;flex-wrap:wrap;max-width:44vw}
+.prog b{width:16px;height:2px;background:var(--line);cursor:pointer;transition:.3s;border-radius:2px}
+.prog b.on{background:var(--accent);width:28px}
+.prog b.seen{background:rgba(84,104,196,.35)}
+:focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:6px}
+
+.ib{position:relative;border:1.5px dashed var(--accent);background:var(--accent-soft);border-radius:var(--r);
+  padding:clamp(13px,1.6vw,18px) clamp(15px,1.9vw,20px);display:flex;gap:12px;align-items:flex-start}
+.ib .ibi{font-size:1.3rem;flex:none;line-height:1;animation:floaty 4.5s ease-in-out infinite}
+.ib .ibt{flex:1;min-width:0}
+.ib .iblabel{font-family:var(--mono);font-size:.65rem;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);font-weight:700;display:block;margin-bottom:4px}
+.ib p{color:var(--ink);font-weight:500;margin:0}
+.ib.game{border-style:solid;background:var(--pos-soft)}
+.ib.game .iblabel{color:var(--pos)}
+
+.graph{position:relative;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--s1);overflow:hidden;padding:10px}
+.graph svg{display:block;width:100%;height:auto}
+.gridline{stroke:var(--soft);stroke-width:1}
+.axisline{stroke:var(--line);stroke-width:1.4}
+.axisbold{stroke:var(--ink);stroke-width:1.6;opacity:.5}
+.ticklabel{font-family:var(--mono);font-size:8.5px;fill:var(--muted)}
+.fitline{stroke:var(--accent);stroke-width:3;stroke-linecap:round;fill:none}
+.datapt{fill:var(--accent2);stroke:var(--surface);stroke-width:2}
+.datapt.cls1{fill:var(--orange)}
+.predpt{fill:var(--pos);stroke:var(--surface);stroke-width:1.5}
+.residual{stroke:var(--orange);stroke-width:1.6;stroke-dasharray:3 3}
+.threshline{stroke:var(--deep);stroke-width:2;stroke-dasharray:5 4}
+.clickpt{cursor:pointer;fill:var(--surface);stroke:var(--accent);stroke-width:1.6}
+.clickpt:hover{fill:var(--accent-soft)}
+.clickpt.correct{fill:var(--pos);stroke:var(--pos)}
+.clickpt.incorrect{fill:var(--orange);stroke:var(--orange)}
+
+.slider-row{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.slider-row label{font-family:var(--mono);font-size:.68rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);min-width:74px}
+input[type=range]{-webkit-appearance:none;appearance:none;flex:1;min-width:130px;height:4px;border-radius:2px;background:var(--line);outline:none}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:19px;height:19px;border-radius:50%;background:var(--accent);cursor:pointer;box-shadow:var(--s1);transition:.2s}
+input[type=range]::-webkit-slider-thumb:hover{transform:scale(1.15)}
+input[type=range]::-moz-range-thumb{width:19px;height:19px;border-radius:50%;background:var(--accent);cursor:pointer;border:none}
+.slider-val{font-family:var(--mono);font-size:.86rem;color:var(--accent);font-weight:600;min-width:44px;text-align:right}
+.eqbox{font-family:var(--mono);font-size:clamp(1.02rem,2vw,1.3rem);font-weight:600;color:var(--ink);background:var(--tint);border-radius:10px;padding:11px 17px;display:inline-block}
+.eqbox b{color:var(--accent)}
+
+.mscat{height:64px;position:relative;margin:9px 0 2px}
+.mscat svg{width:100%;height:100%}
+.mscat circle{fill:var(--accent)}
+.mscat.disc circle{fill:var(--orange)}
+
+.errbars{display:flex;align-items:flex-end;gap:6px;height:60px;margin-top:10px}
+.errbars i{flex:1;background:linear-gradient(180deg,var(--orange),#e0a878);border-radius:3px 3px 0 0;display:block;transition:height .3s ease}
+
+.candrow{display:flex;gap:10px;flex-wrap:wrap}
+.candbtn{font:inherit;font-family:var(--disp);font-weight:600;font-size:.84rem;padding:10px 18px;border-radius:9px;
+  border:1px solid var(--line);background:var(--surface);cursor:pointer;transition:.2s}
+.candbtn:hover{border-color:var(--accent);transform:translateY(-2px)}
+.candbtn.tried{background:var(--tint)}
+.candbtn.best{background:var(--pos-soft);border-color:var(--pos);color:var(--pos)}
+
+.r2bar{width:100%;height:26px;border-radius:13px;background:var(--tint);overflow:hidden;position:relative}
+.r2bar i{display:block;height:100%;border-radius:13px;background:linear-gradient(90deg,var(--orange),var(--accent2),var(--pos));transition:width .5s cubic-bezier(.22,1,.36,1)}
+.r2label{font-family:var(--mono);font-weight:700;color:var(--ink);font-size:1rem}
+
+.orderrow{display:flex;gap:8px;flex-wrap:wrap}
+.stepchip{font:inherit;font-family:var(--body);font-weight:500;font-size:.86rem;padding:10px 15px;border-radius:9px;
+  border:1px solid var(--line);background:var(--surface);cursor:pointer;transition:.2s}
+.stepchip:hover{border-color:var(--accent);transform:translateY(-2px)}
+.stepchip.used{opacity:.35;pointer-events:none}
+.orderslots{display:flex;flex-direction:column;gap:6px}
+.orderslot{display:flex;align-items:center;gap:10px;padding:9px 13px;border-radius:9px;background:var(--tint);
+  font-size:.88rem;min-height:20px;border:1px solid transparent}
+.orderslot .num{font-family:var(--mono);color:var(--accent);font-weight:700;width:18px}
+.orderslot.right{background:var(--pos-soft);border-color:var(--pos)}
+.orderslot.wrong{background:rgba(193,119,74,.14);border-color:var(--orange)}
+
+.confmat{display:grid;grid-template-columns:auto 1fr 1fr;gap:2px;max-width:440px}
+.confmat .hd{font-family:var(--mono);font-size:.66rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);
+  display:flex;align-items:center;justify-content:center;padding:8px}
+.confmat .cell{background:var(--tint);border-radius:10px;padding:14px 10px;text-align:center}
+.confmat .cell.tp{background:var(--pos-soft)}
+.confmat .cell.tn{background:var(--accent-soft)}
+.confmat .cell.fp,.confmat .cell.fn{background:#FBF0EA}
+.confmat .cell .n{font-family:var(--disp);font-weight:800;font-size:1.7rem;color:var(--ink)}
+.confmat .cell .lab{font-family:var(--mono);font-size:.62rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-top:3px;display:block}
+
+.metricrow{display:flex;gap:10px;flex-wrap:wrap}
+.metric{flex:1;min-width:120px;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px 14px;box-shadow:var(--s1)}
+.metric h4{margin-bottom:5px}
+.metric .v{font-family:var(--disp);font-weight:800;font-size:1.5rem;color:var(--accent)}
+
+.gif{width:100%;max-width:220px;margin:0 auto;display:block}
+.emoji-anim{font-size:2.6rem;display:inline-block;animation:bounce 1.6s ease-in-out infinite}
+
+@media (max-width:980px){
+  .g4,.g3,.g5{grid-template-columns:repeat(2,1fr)}.split,.splitw{grid-template-columns:1fr}
+  .prog{display:none}
+}
+@media (max-width:640px){.g4,.g3,.g2,.g5{grid-template-columns:1fr}.chapter .cn{font-size:4.2rem}.confmat{grid-template-columns:auto 1fr 1fr}}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition-duration:.01ms!important}}
+</style>
+</head>
+<body>
+<svg style="display:none" aria-hidden="true">
+<symbol id="i-arrow-r" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></symbol>
+<symbol id="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M8.5 12.5l2.4 2.4L16 10"/></symbol>
+<symbol id="i-house" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/></symbol>
+<symbol id="i-target" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/></symbol>
+<symbol id="i-scale" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v18M5 8l-3 6a4 4 0 0 0 6 0zM19 8l-3 6a4 4 0 0 0 6 0zM7 5h10"/></symbol>
+<symbol id="i-spark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v18M4.5 7.5l15 9M19.5 7.5l-15 9"/></symbol>
+<symbol id="i-axis" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h16M4 20V4"/><path d="M4 4l-2.2 2.2M4 4l2.2 2.2M20 20l-2.2-2.2M20 20l-2.2 2.2"/><circle cx="9" cy="14" r="1.3" fill="currentColor" stroke="none"/><circle cx="14" cy="9" r="1.3" fill="currentColor" stroke="none"/></symbol>
+<symbol id="i-calc" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="2" width="16" height="20" rx="2"/><path d="M8 7h8"/><circle cx="8" cy="12" r=".8" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r=".8" fill="currentColor" stroke="none"/><circle cx="16" cy="12" r=".8" fill="currentColor" stroke="none"/><circle cx="8" cy="16" r=".8" fill="currentColor" stroke="none"/><circle cx="12" cy="16" r=".8" fill="currentColor" stroke="none"/><circle cx="16" cy="16" r=".8" fill="currentColor" stroke="none"/></symbol>
+<symbol id="i-dots" viewBox="0 0 24 24" fill="currentColor" stroke="none"><circle cx="5" cy="7" r="1.6"/><circle cx="12" cy="15" r="1.6"/><circle cx="18" cy="9" r="1.6"/><circle cx="8" cy="18" r="1.6"/><circle cx="19" cy="17" r="1.6"/></symbol>
+<symbol id="i-layers" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5M2 12l10 5 10-5"/></symbol>
+<symbol id="i-flag" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 21V4"/><path d="M5 4h13l-3 4 3 4H5"/></symbol>
+<symbol id="i-gauge" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15a8 8 0 1 1 16 0"/><path d="M12 15l4-5"/><circle cx="12" cy="15" r="1.2" fill="currentColor" stroke="none"/></symbol>
+<symbol id="i-ruler" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="7" width="19" height="10" rx="1.5" transform="rotate(-8 12 12)"/><path d="M7 10l1 2M10 9.4l1 2M13 8.8l1 2M16 8.2l1 2" transform="rotate(-8 12 12)"/></symbol>
+<symbol id="i-book" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></symbol>
+<symbol id="i-trophy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8 21h8M12 17v4"/><path d="M7 4h10v5a5 5 0 0 1-10 0V4z"/><path d="M7 5H4a3 3 0 0 0 3 5M17 5h3a3 3 0 0 1-3 5"/></symbol>
+<symbol id="i-mail" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3.5 6.5L12 13l8.5-6.5"/></symbol>
+<symbol id="i-split" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 4v6c0 3 3 3 6 3s6 0 6 3v4"/><circle cx="6" cy="4" r="1.6" fill="currentColor" stroke="none"/><circle cx="6" cy="20" r="1.6" fill="currentColor" stroke="none"/><circle cx="18" cy="20" r="1.6" fill="currentColor" stroke="none"/></symbol>
+</svg>
+<div class="rail"><i id="rail"></i></div>
+<div class="chap" id="chap"></div>
+<div id="deck">
+
+  <section class="slide" data-chap="">
+    <div class="inner go split" style="max-width:1180px">
+      <div style="display:flex;flex-direction:column;gap:clamp(14px,2.2vh,22px);align-items:flex-start">
+        <h1 class="shine">Evaluating a Logistic Regression Classifier</h1>
+        <p class="lead">Getting the label right isn't the whole story — how you get it wrong matters just as much. A hands-on look at confusion matrices, accuracy, precision, recall, F1 and ROC-AUC.</p>
+      </div>
+      <div class="graph" style="padding:22px 18px;position:relative">
+        <div class="confmat" style="max-width:280px;margin:0 auto">
+          <div class="hd"></div><div class="hd">Pred Yes</div><div class="hd">Pred No</div>
+          <div class="hd" style="writing-mode:vertical-rl;transform:rotate(180deg)">Actual Yes</div>
+          <div class="cell tp"><span class="n">TP</span><span class="lab">True Positive</span></div>
+          <div class="cell fn"><span class="n">FN</span><span class="lab">False Negative</span></div>
+          <div class="hd" style="writing-mode:vertical-rl;transform:rotate(180deg)">Actual No</div>
+          <div class="cell fp"><span class="n">FP</span><span class="lab">False Positive</span></div>
+          <div class="cell tn"><span class="n">TN</span><span class="lab">True Negative</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="slide" data-chap="">
+    <div class="inner go">
+      <div class="eyebrow">Before We Start</div>
+      <h2>By the end, you'll be able to do 3 things.</h2>
+      <div class="grid g3 go2">
+        <div class="card"><svg class="icon"><use href="#i-layers"/></svg><h3>Read a confusion matrix</h3><p style="margin-top:7px">TP, TN, FP, FN — and what each one means.</p></div>
+        <div class="card"><svg class="icon"><use href="#i-gauge"/></svg><h3>Judge a classifier</h3><p style="margin-top:7px">Using accuracy, precision, recall and F1.</p></div>
+        <div class="card"><svg class="icon"><use href="#i-target"/></svg><h3>Compare with ROC-AUC</h3><p style="margin-top:7px">How good is the model across every possible threshold?</p></div>
+      </div>
+      <p class="hintline">This module assumes you already have a trained classifier that outputs a probability p — see the companion module "Logistic Regression for Classification: Building the Model" if you need that groundwork first.</p>
+    </div>
+  </section>
+
+  <section class="slide" data-chap="Evaluation">
+    <div class="inner go" style="align-items:flex-start;justify-content:center">
+      <div class="chapter">
+        <div class="cn">1</div>
+        <div class="txt">
+          <div class="eyebrow">Module Overview</div>
+          <h2>Evaluating a Classifier</h2>
+          <p>Getting the label right isn't the whole story — how you get it wrong matters just as much.</p>
+          <div class="row go2" style="margin-top:20px">
+            <span class="pill acc">Confusion matrix</span>
+            <span class="pill">Precision &amp; recall</span>
+            <span class="pill">Worked examples</span>
+            <span class="pill pos">ROC &amp; AUC</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="slide" data-chap="Evaluation">
+    <div class="inner go">
+      <div class="eyebrow">5.1 The Confusion Matrix</div>
+      <h2>Four outcomes, not just "right" or "wrong."</h2>
+      <p class="lead" style="font-size:1rem">Every prediction lands in one of four buckets, comparing what the model said to what was actually true.</p>
+      <div class="confmat">
+        <div class="hd"></div><div class="hd">Predicted Yes</div><div class="hd">Predicted No</div>
+        <div class="hd" style="writing-mode:vertical-rl;transform:rotate(180deg)">Actual Yes</div>
+        <div class="cell tp"><span class="n">TP</span><span class="lab">True Positive</span></div>
+        <div class="cell fn"><span class="n">FN</span><span class="lab">False Negative</span></div>
+        <div class="hd" style="writing-mode:vertical-rl;transform:rotate(180deg)">Actual No</div>
+        <div class="cell fp"><span class="n">FP</span><span class="lab">False Positive</span></div>
+        <div class="cell tn"><span class="n">TN</span><span class="lab">True Negative</span></div>
+      </div>
+      <div class="row go2">
+        <button class="card rev" style="flex:1;min-width:220px">
+          <h3>What's a False Positive?</h3>
+          <div class="cue"></div>
+          <div class="body"><div><p>The model said "Yes" but the true answer was "No" — a false alarm. Example: a good email marked as spam.</p></div></div>
+        </button>
+        <button class="card rev" style="flex:1;min-width:220px">
+          <h3>What's a False Negative?</h3>
+          <div class="cue"></div>
+          <div class="body"><div><p>The model said "No" but the true answer was "Yes" — a miss. Example: a real spam email that lands in your inbox.</p></div></div>
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <section class="slide" data-chap="Evaluation">
+    <div class="inner go">
+      <div class="eyebrow">5.2 Confusion Matrix — A Worked Example</div>
+      <h2>From four numbers to four scores.</h2>
+      <p class="lead" style="font-size:1rem">Say a spam filter is tested on 100 emails: 20 are actually spam, 80 are not. Here's how it did:</p>
+      <div class="splitw" style="width:100%">
+        <div class="confmat" style="max-width:420px">
+          <div class="hd"></div><div class="hd">Pred Yes</div><div class="hd">Pred No</div>
+          <div class="hd" style="writing-mode:vertical-rl;transform:rotate(180deg)">Actual Yes</div>
+          <div class="cell tp"><span class="n">15</span><span class="lab">TP</span></div>
+          <div class="cell fn"><span class="n">5</span><span class="lab">FN</span></div>
+          <div class="hd" style="writing-mode:vertical-rl;transform:rotate(180deg)">Actual No</div>
+          <div class="cell fp"><span class="n">10</span><span class="lab">FP</span></div>
+          <div class="cell tn"><span class="n">70</span><span class="lab">TN</span></div>
+        </div>
+        <div class="metricrow">
+          <div class="metric"><h4>Accuracy</h4><div class="v">85%</div></div>
+          <div class="metric"><h4>Precision</h4><div class="v">60%</div></div>
+          <div class="metric"><h4>Recall</h4><div class="v">75%</div></div>
+          <div class="metric"><h4>F1</h4><div class="v">66.7%</div></div>
+        </div>
+      </div>
+      <div class="takeaway">
+        <svg class="icon"><use href="#i-flag"/></svg>
+        <div><strong>One matrix, several stories</strong><p>85% accuracy sounds strong, but precision of 60% means 4 in 10 emails flagged "spam" were actually fine — a reminder to read past the headline number.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="slide" data-chap="Evaluation">
+    <div class="inner go">
+      <div class="eyebrow">5.3 Accuracy</div>
+      <h2>The simplest score: what fraction did we get right?</h2>
+      <div class="eqbox" style="font-size:clamp(.85rem,1.7vw,1.05rem)">Accuracy = (TP + TN) / Total</div>
+      <p class="lead" style="font-size:1rem">Easy to understand, but dangerous with imbalanced data. If only 1% of emails are spam, a model that always predicts "not spam" is 99% accurate — and completely useless.</p>
+      <div class="ib"><span class="ibi">🧊</span><div class="ibt"><span class="iblabel">Icebreaker</span>
+        <p>If 99 out of 100 patients don't have a rare disease, why might "99% accuracy" be a misleading way to judge a diagnosis model?</p></div></div>
+    </div>
+  </section>
+
+  <section class="slide" data-chap="Evaluation">
+    <div class="inner go">
+      <div class="eyebrow">5.4 Precision &amp; Recall</div>
+      <h2>Two questions accuracy can't answer alone.</h2>
+      <div class="grid g2 go2">
+        <div class="card cool">
+          <h4 style="color:var(--accent)">Precision</h4><h3 style="margin-top:6px">Of everything I flagged "Yes," how much was right?</h3>
+          <div class="eqbox" style="margin-top:8px;font-size:.95rem">TP / (TP + FP)</div>
+          <p style="margin-top:8px;color:var(--ink)">High precision = few false alarms.</p>
+        </div>
+        <div class="card" style="background:var(--pos-soft);box-shadow:none">
+          <h4 style="color:var(--pos)">Recall</h4><h3 style="margin-top:6px">Of everything that was actually "Yes," how much did I catch?</h3>
+          <div class="eqbox" style="margin-top:8px;font-size:.95rem">TP / (TP + FN)</div>
+          <p style="margin-top:8px;color:var(--ink)">High recall = few misses.</p>
+        </div>
+      </div>
+      <p class="hintline">They usually trade off — catching more "Yes" cases (recall) often means more false alarms (lower precision).</p>
+    </div>
+  </section>
+
+  <section class="slide" data-chap="Evaluation">
+    <div class="inner go" style="text-align:center;align-items:center">
+      <div class="eyebrow">5.5 F1 Score</div>
+      <h2>One number that balances precision and recall.</h2>
+      <div class="eqbox" style="font-size:clamp(.9rem,1.9vw,1.15rem)">F1 = 2 × (Precision × Recall) / (Precision + Recall)</div>
+      <p class="lead" style="max-width:60ch">F1 is the harmonic mean of precision and recall — it stays low unless <strong>both</strong> are reasonably high, making it a good single score when you care about both false alarms and misses.</p>
+    </div>
+  </section>
+
+  <section class="slide" data-chap="Evaluation">
+    <div class="inner go">
+      <div class="eyebrow">5.6 ROC Curve &amp; AUC</div>
+      <h2>How good is the model across every possible threshold?</h2>
+      <p class="lead" style="font-size:1rem">Instead of picking one threshold, the ROC curve plots the trade-off between catching true positives and triggering false alarms across <strong>all</strong> thresholds at once. AUC (Area Under the Curve) summarizes it in one number — 1.0 is perfect, 0.5 is random guessing.</p>
+      <div class="row">
+        <button class="btn" id="rocGood">Good classifier</button>
+        <button class="btn" id="rocRandom">Random guessing</button>
+      </div>
+      <div class="graph" style="max-width:340px">
+        <svg id="rocSvg" viewBox="0 0 200 200"></svg>
+      </div>
+      <p class="lead" id="rocLabel" style="font-size:1.05rem"></p>
+    </div>
+  </section>
+
+  <section class="slide" data-chap="Evaluation">
+    <div class="inner go" style="text-align:center;align-items:center">
+      <div class="eyebrow"><svg class="icon" style="margin:0;width:16px;height:16px"><use href="#i-flag"/></svg>Capstone Game</div>
+      <h2>Put the classification pipeline in the right order.</h2>
+      <p class="lead">Click each step in the order it happens when building a logistic regression classifier, then check your answer.</p>
+      <div class="split" style="width:100%;max-width:860px;align-items:start;text-align:left">
+        <div class="orderrow" id="pipeSteps"></div>
+        <div class="orderslots" id="pipeSlots"></div>
+      </div>
+      <div class="row" style="justify-content:center;margin-top:6px">
+        <button class="btn" id="pipeReset">Reset</button>
+        <button class="btn solid" id="pipeCheck">Check My Order</button>
+      </div>
+      <p id="pipeFeedback" class="lead" style="min-height:1.5em"></p>
+    </div>
+  </section>
+
+  <section class="slide" data-chap="Evaluation">
+    <div class="inner go" style="text-align:center;align-items:center">
+      <div class="eyebrow">Final Mixed Round</div>
+      <h2>One last check across everything you've learned.</h2>
+      <div id="quiz5Wrap" style="width:100%;max-width:640px">
+        <div class="scenario active" data-answer="Sigmoid"><p class="lead">Which function turns any number into a probability between 0 and 1?</p></div>
+        <div class="scenario" data-answer="FalsePositive"><p class="lead">A good email wrongly marked as spam is an example of a…</p></div>
+        <div class="scenario" data-answer="Recall"><p class="lead">"Of everyone who actually had the disease, how many did we catch?" describes which metric?</p></div>
+        <div class="scenario" data-answer="LogLoss"><p class="lead">Which cost function heavily punishes confident wrong predictions?</p></div>
+        <div class="row" style="margin-top:15px;justify-content:center;flex-wrap:wrap">
+          <button class="qopt" data-choice="Sigmoid">Sigmoid function</button>
+          <button class="qopt" data-choice="FalsePositive">False Positive</button>
+          <button class="qopt" data-choice="Recall">Recall</button>
+          <button class="qopt" data-choice="LogLoss">Log Loss</button>
+        </div>
+        <p id="quiz5Feedback" class="lead" style="min-height:1.5em;margin-top:6px"></p>
+        <p class="hintline" id="quiz5Progress">Question 1 of 4</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="slide" data-chap="">
+    <div class="inner go" style="text-align:center;align-items:center">
+      <div class="eyebrow">You Did It</div>
+      <h1 class="shine" style="font-size:clamp(2rem,4.4vw,3.2rem)">You can now evaluate a classifier like a practitioner.</h1>
+      <div class="grid g3 go2" style="width:100%;max-width:840px;text-align:left">
+        <div class="card"><h4>01</h4><h3 style="margin-top:6px">Confusion matrix — TP, TN, FP &amp; FN</h3></div>
+        <div class="card"><h4>02</h4><h3 style="margin-top:6px">Accuracy, precision, recall &amp; F1</h3></div>
+        <div class="card"><h4>03</h4><h3 style="margin-top:6px">ROC curves &amp; AUC across every threshold</h3></div>
+      </div>
+      <p class="lead" style="margin:0 auto;max-width:56ch">From a single confusion matrix to judging a classifier with five different metrics — you've covered the entire evaluation toolkit.</p>
+      <div class="emoji-anim">🏆</div>
+      <p class="hintline">Nice work — feel free to revisit any slide using the dots below.</p>
+    </div>
+  </section>
+</div>
+<div class="ctrl">
+  <span class="ct" id="ct">01</span>
+  <button id="prev" aria-label="Previous slide"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg></button>
+  <button id="next" aria-label="Next slide"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
+  <button id="fs" aria-label="Full screen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3H5a2 2 0 0 0-2 2v3M16 3h3a2 2 0 0 1 2 2v3M8 21H5a2 2 0 0 1-2-2v-3M16 21h3a2 2 0 0 0 2-2v-3"/></svg></button>
+</div>
+<div class="prog" id="prog"></div>
+<script>
+(function(){
+const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
+const slides=$$('.slide'), rail=$('#rail'), ct=$('#ct'), prog=$('#prog'), chap=$('#chap');
+let i=0;
+slides.forEach((s,n)=>{const b=document.createElement('b');
+  b.onclick=e=>{e.stopPropagation(); go(n)}; prog.append(b)});
+const bars=[...prog.children];
+ct.textContent='01 / '+slides.length;
+
+function go(n){
+  const t=Math.max(0,Math.min(slides.length-1,n)); if(t===i && slides[i].classList.contains('active')) return;
+  const fwd=t>i, prevSlide=slides[i];
+  prevSlide.classList.remove('active');
+  prevSlide.classList.add(fwd?'exit-l':'exit-r');
+  setTimeout(()=>prevSlide.classList.remove('exit-l','exit-r'),420);
+  i=t;
+  const s=slides[i];
+  s.classList.add(fwd?'enter-r':'enter-l');
+  requestAnimationFrame(()=>requestAnimationFrame(()=>{
+    s.classList.remove('enter-r','enter-l'); s.classList.add('active');
+  }));
+  bars.forEach((b,k)=>{b.classList.toggle('on',k===i); b.classList.toggle('seen',k<i)});
+  ct.textContent=String(i+1).padStart(2,'0')+' / '+slides.length;
+  rail.style.width=(i/(slides.length-1)*100)+'%';
+  chap.textContent=s.dataset.chap||'';
+  $('#prev').disabled=i===0; $('#next').disabled=i===slides.length-1;
+}
+$('#next').onclick=e=>{e.stopPropagation(); go(i+1)};
+$('#prev').onclick=e=>{e.stopPropagation(); go(i-1)};
+$('#fs').onclick=e=>{e.stopPropagation();
+  document.fullscreenElement?document.exitFullscreen():document.documentElement.requestFullscreen()};
+$('#deck').addEventListener('click',e=>{
+  if(e.target.closest('button,input,select,a,.rev,.qopt,.candbtn,.stepchip,.clickpt')) return; go(i+1)});
+document.addEventListener('keydown',e=>{
+  const t=e.target.tagName;
+  if(t==='INPUT'||t==='SELECT') return;
+  if(['ArrowRight',' ','PageDown'].includes(e.key)){e.preventDefault(); go(i+1)}
+  else if(['ArrowLeft','PageUp'].includes(e.key)){e.preventDefault(); go(i-1)}
+  else if(e.key==='f'||e.key==='F'){document.fullscreenElement?document.exitFullscreen():document.documentElement.requestFullscreen()}
+  else if(e.key==='Home') go(0); else if(e.key==='End') go(slides.length-1);
+});
+
+const startBtn=$('#startBtn'); if(startBtn) startBtn.onclick=e=>{e.stopPropagation(); go(i+1)};
+$$('.rev').forEach(c=>c.onclick=e=>{e.stopPropagation(); c.classList.toggle('open')});
+
+/* ---------- generic quiz engine ---------- */
+function buildQuiz(id, opts){
+  const wrap=$('#'+id+'Wrap'); if(!wrap) return;
+  const scenarios=$$('#'+id+'Wrap .scenario');
+  let idx=0, score=0;
+  const buttons=$$('#'+id+'Wrap .qopt');
+  const fb=$('#'+id+'Feedback'), prg=$('#'+id+'Progress');
+  function render(){
+    scenarios.forEach((s,k)=>s.classList.toggle('active',k===idx));
+    buttons.forEach(o=>o.classList.remove('right','wrong'));
+    fb.textContent='';
+    prg.textContent = idx<scenarios.length ? ('Question '+(idx+1)+' of '+scenarios.length) : 'All done — nice work!';
+  }
+  buttons.forEach(o=>o.onclick=e=>{
+    e.stopPropagation();
+    if(idx>=scenarios.length) return;
+    const correct=scenarios[idx].dataset.answer;
+    const choice=o.dataset.choice;
+    buttons.forEach(x=>x.classList.remove('right','wrong'));
+    if(choice===correct){ o.classList.add('right'); fb.textContent=(opts&&opts.right)?opts.right:'Correct!'; score++; }
+    else { o.classList.add('wrong'); const w=buttons.find(x=>x.dataset.choice===correct); if(w) w.classList.add('right'); fb.textContent=(opts&&opts.wrong)?opts.wrong:'Not quite — check the highlighted answer.'; }
+    setTimeout(()=>{ idx++; if(idx<scenarios.length) render(); else { prg.textContent='All done — you got '+score+' of '+scenarios.length+' right.'; scenarios.forEach(s=>s.classList.remove('active')); } },1300);
+  });
+  render();
+}
+buildQuiz('quiz1',{right:'Correct!',wrong:'Not quite — check the highlighted answer.'});
+buildQuiz('quiz2',{right:'Correct!',wrong:'Not quite — check the highlighted answer.'});
+buildQuiz('quiz3',{right:'Correct!',wrong:'Not quite — check the highlighted answer.'});
+buildQuiz('quiz4',{right:'Correct — the more confident the wrong guess, the higher the loss.',wrong:'Not quite — think about which p is further from the true label.'});
+buildQuiz('quiz5',{right:'Correct!',wrong:'Not quite — check the highlighted answer.'});
+
+/* ---------- shared sigmoid helpers ---------- */
+function sigmoid(z){ return 1/(1+Math.exp(-z)); }
+function drawSigmoidCurve(svg, W, H, marL, marR, marT, marB, markerZ){
+  const plotW=W-marL-marR, plotH=H-marT-marB;
+  function sx(z){ return marL + (z+8)/16*plotW; }
+  function sy(p){ return marT + (1-p)*plotH; }
+  let s='';
+  for(let z=-8; z<=8; z+=4){
+    s+='<line x1="'+sx(z)+'" y1="'+marT+'" x2="'+sx(z)+'" y2="'+(H-marB)+'" class="gridline"/>';
+    if(marB>18) s+='<text x="'+sx(z)+'" y="'+(H-marB+14)+'" text-anchor="middle" class="ticklabel">'+z+'</text>';
+  }
+  [0,0.5,1].forEach(p=>{
+    s+='<line x1="'+marL+'" y1="'+sy(p)+'" x2="'+(W-marR)+'" y2="'+sy(p)+'" class="gridline"/>';
+    if(marL>18) s+='<text x="'+(marL-8)+'" y="'+(sy(p)+3)+'" text-anchor="end" class="ticklabel">'+p+'</text>';
+  });
+  s+='<line x1="'+marL+'" y1="'+(H-marB)+'" x2="'+(W-marR)+'" y2="'+(H-marB)+'" class="axisline"/>';
+  s+='<line x1="'+marL+'" y1="'+marT+'" x2="'+marL+'" y2="'+(H-marB)+'" class="axisline"/>';
+  let path='';
+  for(let z=-8; z<=8.01; z+=0.4){
+    const px=sx(z), py=sy(sigmoid(z));
+    path += (z===-8?'M':'L')+px+' '+py+' ';
+  }
+  s+='<path d="'+path+'" class="fitline"/>';
+  if(markerZ!==undefined){
+    s+='<circle cx="'+sx(markerZ)+'" cy="'+sy(sigmoid(markerZ))+'" r="6" class="predpt"/>';
+  }
+  svg.innerHTML=s;
+}
+
+/* hero decorative sigmoid */
+(function(){
+  const svg=$('#heroSigSvg'); if(!svg) return;
+  drawSigmoidCurve(svg,300,200,10,10,10,10,2);
+})();
+(function(){
+  const svg=$('#miniSigSvg'); if(!svg) return;
+  drawSigmoidCurve(svg,200,110,6,6,6,6);
+})();
+
+/* 2.2 sigmoid explorer */
+(function(){
+  const svg=$('#sigSvg'); if(!svg) return;
+  const zS=$('#sigZ'), zV=$('#sigZVal'), res=$('#sigResult');
+  function render(){
+    const z=parseFloat(zS.value);
+    zV.textContent=z;
+    drawSigmoidCurve(svg,380,240,40,14,14,32,z);
+    res.innerHTML='σ('+z+') = <strong>'+sigmoid(z).toFixed(3)+'</strong>';
+  }
+  zS.oninput=render; render();
+})();
+
+/* 3.2 live equation calculator */
+(function(){
+  const x=$('#lrX'), xv=$('#lrXVal'), res=$('#lrResult');
+  if(!x) return;
+  function upd(){
+    const val=parseFloat(x.value);
+    xv.textContent=val;
+    const z=-4+1*val, p=sigmoid(z);
+    const cls = p>=0.5?'Pass':'Fail';
+    res.innerHTML='z = −4 + 1×'+val+' = '+z.toFixed(1)+' &nbsp;→&nbsp; p = σ('+z.toFixed(1)+') = <strong>'+p.toFixed(2)+'</strong> &nbsp;→&nbsp; <span class="pill '+(cls==='Pass'?'pos':'warn')+'">'+cls+'</span>';
+  }
+  x.oninput=upd; upd();
+})();
+
+/* 3.3 multiple logistic regression */
+(function(){
+  const links=$('#sLinks'), excl=$('#sExcl'), trust=$('#sTrust');
+  const linksV=$('#sLinksVal'), exclV=$('#sExclVal'), trustV=$('#sTrustVal'), res=$('#sResult');
+  if(!links) return;
+  function upd(){
+    const l=parseFloat(links.value), e=parseFloat(excl.value), t=parseFloat(trust.value);
+    linksV.textContent=l; exclV.textContent=e; trustV.textContent=t;
+    const z = -2 + 0.5*l + 0.6*e - 0.5*t;
+    const p = sigmoid(z);
+    const cls = p>=0.5?'Spam':'Not Spam';
+    res.innerHTML='p(spam) = σ(z) = <strong>'+p.toFixed(2)+'</strong> &nbsp;→&nbsp; <span class="pill '+(cls==='Spam'?'warn':'pos')+'">'+cls+'</span>';
+  }
+  links.oninput=upd; excl.oninput=upd; trust.oninput=upd; upd();
+})();
+
+/* 3.4 reading the coefficients (odds & log-odds) */
+(function(){
+  const pS=$('#oddsP'), pV=$('#oddsPVal'), res=$('#oddsResult');
+  if(!pS) return;
+  function upd(){
+    const p=parseFloat(pS.value);
+    pV.textContent=p.toFixed(2);
+    const odds=p/(1-p), logodds=Math.log(odds);
+    res.innerHTML='Odds = '+p.toFixed(2)+' / '+(1-p).toFixed(2)+' = <strong>'+odds.toFixed(2)+'</strong> &nbsp;·&nbsp; Log-odds = ln('+odds.toFixed(2)+') = <strong>'+logodds.toFixed(2)+'</strong>';
+  }
+  pS.oninput=upd; upd();
+})();
+
+/* 4.3 log loss explorer */
+(function(){
+  const svg=$('#lossSvg'); if(!svg) return;
+  const pS=$('#lossP'), pV=$('#lossPVal'), val=$('#lossVal');
+  let trueY=1;
+  const marL=36, marR=14, marT=14, marB=30, W=380, H=220;
+  function sx(p){ return marL + p*(W-marL-marR); }
+  function sy(loss){ const capped=Math.min(loss,5); return marT + (1-capped/5)*(H-marT-marB); }
+  function render(){
+    const p=parseFloat(pS.value); pV.textContent=p.toFixed(2);
+    let s='';
+    for(let g=0; g<=1.001; g+=0.25){
+      s+='<line x1="'+sx(g)+'" y1="'+marT+'" x2="'+sx(g)+'" y2="'+(H-marB)+'" class="gridline"/>';
+      s+='<text x="'+sx(g)+'" y="'+(H-marB+14)+'" text-anchor="middle" class="ticklabel">'+g+'</text>';
+    }
+    s+='<line x1="'+marL+'" y1="'+(H-marB)+'" x2="'+(W-marR)+'" y2="'+(H-marB)+'" class="axisline"/>';
+    s+='<line x1="'+marL+'" y1="'+marT+'" x2="'+marL+'" y2="'+(H-marB)+'" class="axisline"/>';
+    let path='';
+    for(let g=0.02; g<=0.981; g+=0.02){
+      const loss = trueY===1 ? -Math.log(g) : -Math.log(1-g);
+      const px=sx(g), py=sy(loss);
+      path += (g<=0.021?'M':'L')+px+' '+py+' ';
+    }
+    s+='<path d="'+path+'" class="fitline"/>';
+    const loss = trueY===1 ? -Math.log(p) : -Math.log(1-p);
+    s+='<circle cx="'+sx(p)+'" cy="'+sy(loss)+'" r="6" class="predpt"/>';
+    svg.innerHTML=s;
+    val.innerHTML='Loss = <strong>'+loss.toFixed(2)+'</strong>'+(loss<0.3?' <span class="pill pos" style="margin-left:6px">Great!</span>':loss>2?' <span class="pill warn" style="margin-left:6px">Ouch — confidently wrong</span>':'');
+  }
+  pS.oninput=render;
+  $('#lossTrue1').onclick=e=>{e.stopPropagation(); trueY=1; render();};
+  $('#lossTrue0').onclick=e=>{e.stopPropagation(); trueY=0; render();};
+  render();
+})();
+
+/* 4.4 gradient descent visual */
+(function(){
+  const svg=$('#gdSvg'); if(!svg) return;
+  const text=$('#gdText');
+  let w=-3.5;
+  const marL=20, marR=20, marT=20, marB=20, W=300, H=180;
+  function cost(x){ return (x)*(x)*0.9+0.3; }
+  function sx(x){ return marL + (x+4)/8*(W-marL-marR); }
+  function sy(c){ return (H-marB) - (c/8.5)*(H-marT-marB); }
+  function render(){
+    let path='';
+    for(let x=-4; x<=4.01; x+=0.2){
+      const px=sx(x), py=sy(cost(x));
+      path += (x<=-3.99?'M':'L')+px+' '+py+' ';
+    }
+    let s='<path d="'+path+'" class="fitline"/>';
+    s+='<circle cx="'+sx(w)+'" cy="'+sy(cost(w))+'" r="7" class="predpt"/>';
+    svg.innerHTML=s;
+  }
+  $('#gdStep').onclick=e=>{
+    e.stopPropagation();
+    const grad=2*0.9*w;
+    w = w - 0.35*grad;
+    w = Math.max(-4,Math.min(4,w));
+    render();
+    text.textContent = Math.abs(w)<0.15 ? 'Reached the minimum — this is the best-fit weight!' : 'Weight moved to '+w.toFixed(2)+' — cost is now '+cost(w).toFixed(2)+'.';
+  };
+  $('#gdReset').onclick=e=>{ e.stopPropagation(); w=-3.5; render(); text.textContent='Each click nudges the weight a little closer to the minimum-cost point.'; };
+  render();
+})();
+
+/* 5.6 ROC curve */
+(function(){
+  const svg=$('#rocSvg'); if(!svg) return;
+  const label=$('#rocLabel');
+  const marL=20, marR=10, marT=10, marB=20, W=200, H=200;
+  function sx(fpr){ return marL + fpr*(W-marL-marR); }
+  function sy(tpr){ return (H-marB) - tpr*(H-marT-marB); }
+  function render(good){
+    let s='<line x1="'+marL+'" y1="'+(H-marB)+'" x2="'+(W-marR)+'" y2="'+(H-marB)+'" class="axisline"/>';
+    s+='<line x1="'+marL+'" y1="'+marT+'" x2="'+marL+'" y2="'+(H-marB)+'" class="axisline"/>';
+    s+='<line x1="'+sx(0)+'" y1="'+sy(0)+'" x2="'+sx(1)+'" y2="'+sy(1)+'" class="gridline"/>';
+    let path='';
+    const curve = good
+      ? [[0,0],[0.05,0.45],[0.15,0.7],[0.3,0.85],[0.5,0.93],[0.75,0.97],[1,1]]
+      : [[0,0],[0.25,0.25],[0.5,0.5],[0.75,0.75],[1,1]];
+    curve.forEach((pt,k)=>{ path += (k===0?'M':'L')+sx(pt[0])+' '+sy(pt[1])+' '; });
+    s+='<path d="'+path+'" class="fitline"/>';
+    svg.innerHTML=s;
+    label.innerHTML = good
+      ? 'AUC ≈ <strong>0.90</strong> — the curve bows sharply towards the top-left, meaning high true-positive rate with few false positives.'
+      : 'AUC ≈ <strong>0.50</strong> — the curve hugs the diagonal, exactly what a coin-flip classifier looks like.';
+  }
+  $('#rocGood').onclick=e=>{e.stopPropagation(); render(true)};
+  $('#rocRandom').onclick=e=>{e.stopPropagation(); render(false)};
+  render(true);
+})();
+
+/* capstone: order the classification pipeline */
+(function(){
+  const stepsEl=$('#pipeSteps'), slotsEl=$('#pipeSlots'); if(!stepsEl) return;
+  const correctOrder=[
+    'Collect & label the data',
+    'Choose features (e.g. links, sender score)',
+    'Fit logistic regression to find b\u2080, b\u2081…',
+    'Compute probabilities with the sigmoid',
+    'Pick a decision threshold',
+    'Evaluate with confusion matrix, precision & recall'
+  ];
+  let shuffled=[...correctOrder].sort(()=>Math.random()-0.5);
+  let placed=[];
+  function renderSlots(){
+    slotsEl.innerHTML='';
+    correctOrder.forEach((_,k)=>{
+      const d=document.createElement('div');
+      d.className='orderslot';
+      d.innerHTML='<span class="num">'+(k+1)+'</span><span>'+(placed[k]||'—')+'</span>';
+      slotsEl.append(d);
+    });
+  }
+  function renderSteps(){
+    stepsEl.innerHTML='';
+    shuffled.forEach(txt=>{
+      const b=document.createElement('button');
+      b.className='stepchip'+(placed.includes(txt)?' used':'');
+      b.textContent=txt;
+      b.onclick=e=>{
+        e.stopPropagation();
+        if(placed.includes(txt)||placed.length>=correctOrder.length) return;
+        placed.push(txt);
+        renderSteps(); renderSlots();
+      };
+      stepsEl.append(b);
+    });
+  }
+  $('#pipeReset').onclick=e=>{
+    e.stopPropagation();
+    placed=[]; $('#pipeFeedback').textContent='';
+    [...slotsEl.children].forEach(s=>s.classList.remove('right','wrong'));
+    renderSteps(); renderSlots();
+  };
+  $('#pipeCheck').onclick=e=>{
+    e.stopPropagation();
+    if(placed.length<correctOrder.length){ $('#pipeFeedback').textContent='Place all '+correctOrder.length+' steps first.'; return; }
+    let right=0;
+    [...slotsEl.children].forEach((slotEl,k)=>{
+      const ok=placed[k]===correctOrder[k];
+      slotEl.classList.toggle('right',ok);
+      slotEl.classList.toggle('wrong',!ok);
+      if(ok) right++;
+    });
+    $('#pipeFeedback').innerHTML = right===correctOrder.length
+      ? 'Perfect! You got the whole pipeline in order. \ud83c\udf89'
+      : 'You got '+right+' of '+correctOrder.length+' in the right slot — green is correct, orange needs a swap.';
+  };
+  renderSteps(); renderSlots();
+})();
+
+slides[0].classList.add('active');
+bars[0].classList.add('on');
+chap.textContent=slides[0].dataset.chap||'';
+$('#prev').disabled=true;
+})();
+</script>
+</body>
+</html>

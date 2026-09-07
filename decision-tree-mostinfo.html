@@ -1,0 +1,2960 @@
+<!DOCTYPE html>
+
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Decision Trees</title>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700;800&amp;family=Nunito:wght@400;500;600;700;800;900&amp;family=JetBrains+Mono:wght@400;600&amp;display=swap" rel="stylesheet"/>
+<style>
+/* ============================================================
+   TOKENS
+   ============================================================ */
+:root{
+  --sky:#1f7fff;   --sky-soft:rgba(31,127,255,.12);
+  --grape:#7c5cff; --grape-soft:rgba(124,92,255,.12);
+  --coral:#ff4d68; --coral-soft:rgba(255,77,104,.12);
+  --sun:#f0980c;   --sun-soft:rgba(240,152,12,.14);
+  --mint:#0eab74;  --mint-soft:rgba(14,171,116,.13);
+  --teal:#0aa3b8;  --teal-soft:rgba(10,163,184,.13);
+
+  --bg:#f3f6fc;
+  --bg-alt:#ffffff;
+  --panel:#ffffff;
+  --panel-2:#f7f9ff;
+  --ink:#141830;
+  --dim:#586185;
+  --rule:rgba(20,24,48,.11);
+  --rule-strong:rgba(20,24,48,.2);
+  --shadow:0 18px 40px -26px rgba(18,22,45,.5);
+  --shadow-lift:0 26px 55px -30px rgba(18,22,45,.6);
+
+  --code-bg:#171c33;
+  --code-ink:#e6ebff;
+
+  --accent:var(--sky);
+  --accent-soft:var(--sky-soft);
+
+  --maxw:1240px;
+  --pad-x:clamp(1.15rem, 4.5vw, 4.5rem);
+  --pad-y:clamp(3.2rem, 6.5vw, 5.6rem);
+  --r:18px;
+  --r-sm:12px;
+}
+
+@media (prefers-color-scheme: dark){
+  :root{
+    --sky:#61a6ff;   --sky-soft:rgba(97,166,255,.16);
+    --grape:#a68cff; --grape-soft:rgba(166,140,255,.16);
+    --coral:#ff7b8e; --coral-soft:rgba(255,123,142,.16);
+    --sun:#ffb545;   --sun-soft:rgba(255,181,69,.16);
+    --mint:#3ad39b;  --mint-soft:rgba(58,211,155,.16);
+    --teal:#3fc9dd;  --teal-soft:rgba(63,201,221,.16);
+
+    --bg:#0e1122;
+    --bg-alt:#141935;
+    --panel:#191f3d;
+    --panel-2:#1f2649;
+    --ink:#edf0fb;
+    --dim:#a6b0d2;
+    --rule:rgba(255,255,255,.13);
+    --rule-strong:rgba(255,255,255,.26);
+    --shadow:0 18px 40px -26px rgba(0,0,0,.85);
+    --shadow-lift:0 26px 55px -28px rgba(0,0,0,.9);
+    --code-bg:#0b0f22;
+  }
+}
+
+*{box-sizing:border-box;}
+html{scroll-behavior:smooth;}
+body{
+  margin:0; padding:0;
+  background:var(--bg); color:var(--ink);
+  font-family:'Nunito',system-ui,-apple-system,'Segoe UI',sans-serif;
+  font-size:clamp(1rem,.96rem + .18vw,1.09rem);
+  line-height:1.68;
+  -webkit-font-smoothing:antialiased;
+  overflow-x:hidden;
+}
+h1,h2,h3,h4,.display{font-family:'Baloo 2','Nunito',cursive;font-weight:700;letter-spacing:-.012em;margin:0;line-height:1.18;}
+::selection{background:var(--accent);color:#fff;}
+img,svg{max-width:100%;}
+
+/* ============================================================
+   PROGRESS
+   ============================================================ */
+#progress{
+  position:fixed;top:0;left:0;height:4px;width:0%;z-index:80;
+  background:linear-gradient(90deg,var(--sky),var(--grape),var(--coral),var(--sun),var(--mint));
+  transition:width .12s linear;border-radius:0 4px 4px 0;
+}
+
+/* ============================================================
+   BANDS — full bleed, zero side gutters
+   ============================================================ */
+.band{width:100%;padding:var(--pad-y) var(--pad-x);position:relative;}
+.band > .inner{max-width:var(--maxw);margin:0 auto;width:100%;}
+.band.plain{background:var(--bg);}
+.band.alt{background:var(--bg-alt);}
+.band.tint{background:var(--accent-soft);}
+.band.deep{background:linear-gradient(135deg,#141a35 0%,#232a55 55%,#2f2255 100%);color:#f2f5ff;}
+.band.deep .eyebrow{background:rgba(255,255,255,.14);color:#fff;}
+.band.deep h2,.band.deep h3{color:#fff;}
+.band.deep p{color:#d7dcf5;}
+
+.band[data-a="sky"]{--accent:var(--sky);--accent-soft:var(--sky-soft);}
+.band[data-a="grape"]{--accent:var(--grape);--accent-soft:var(--grape-soft);}
+.band[data-a="coral"]{--accent:var(--coral);--accent-soft:var(--coral-soft);}
+.band[data-a="sun"]{--accent:var(--sun);--accent-soft:var(--sun-soft);}
+.band[data-a="mint"]{--accent:var(--mint);--accent-soft:var(--mint-soft);}
+.band[data-a="teal"]{--accent:var(--teal);--accent-soft:var(--teal-soft);}
+
+/* ============================================================
+   HERO
+   ============================================================ */
+#hero{
+  min-height:clamp(460px,88vh,860px);
+  display:flex;align-items:center;
+  padding:clamp(3rem,8vw,6rem) var(--pad-x);
+  background:
+    radial-gradient(circle at 12% 18%,rgba(31,127,255,.20),transparent 42%),
+    radial-gradient(circle at 88% 14%,rgba(240,152,12,.20),transparent 40%),
+    radial-gradient(circle at 20% 88%,rgba(255,77,104,.16),transparent 44%),
+    radial-gradient(circle at 86% 84%,rgba(124,92,255,.20),transparent 44%),
+    var(--bg);
+  position:relative;overflow:hidden;
+}
+#hero .inner{max-width:var(--maxw);margin:0 auto;width:100%;
+  display:grid;grid-template-columns:1.15fr .85fr;gap:clamp(2rem,5vw,4rem);align-items:center;}
+.hero-title{font-size:clamp(2.6rem,7vw,5.2rem);line-height:1.02;letter-spacing:-.03em;}
+.hero-title .g{
+  background:linear-gradient(100deg,var(--sky),var(--grape) 55%,var(--coral));
+  -webkit-background-clip:text;background-clip:text;color:transparent;
+}
+.hero-sub{font-size:clamp(1.05rem,1.6vw,1.28rem);color:var(--dim);font-weight:600;margin-top:1.4rem;max-width:52ch;}
+.hero-chips{display:flex;flex-wrap:wrap;gap:.55rem;margin-top:1.9rem;}
+.hero-chip{
+  background:var(--panel);border:2px solid var(--rule);border-radius:999px;
+  padding:.42rem 1rem;font-weight:800;font-size:.86rem;box-shadow:var(--shadow);
+}
+.scroll-hint{margin-top:2.4rem;display:inline-flex;align-items:center;gap:.6rem;color:var(--dim);font-weight:800;font-size:.9rem;}
+.scroll-hint .arrow{display:inline-block;animation:bob 1.6s ease-in-out infinite;font-size:1.2rem;}
+@keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(6px)}}
+
+/* ============================================================
+   TYPE + SECTION HEADS
+   ============================================================ */
+.eyebrow{
+  display:inline-flex;align-items:center;gap:.5rem;
+  font-size:.78rem;font-weight:900;letter-spacing:.08em;text-transform:uppercase;
+  color:var(--accent);background:var(--accent-soft);
+  padding:.4rem .95rem;border-radius:999px;margin-bottom:1rem;
+}
+h2.sec{font-size:clamp(1.85rem,3.6vw,3rem);max-width:22ch;}
+h3.sub{font-size:clamp(1.25rem,2vw,1.6rem);margin-top:2.6rem;margin-bottom:.9rem;}
+h4{font-size:1.06rem;font-family:'Baloo 2',cursive;}
+p{margin:0 0 1.05rem 0;color:var(--ink);}
+p:last-child{margin-bottom:0;}
+p.dim{color:var(--dim);}
+.lede{font-size:clamp(1.08rem,1.45vw,1.25rem);font-weight:600;color:var(--dim);max-width:70ch;margin-top:1.1rem;}
+.lede strong{color:var(--ink);}
+strong{font-weight:800;}
+code{
+  font-family:'JetBrains Mono','Courier New',monospace;font-size:.87em;font-weight:600;
+  background:var(--accent-soft);color:var(--accent);padding:.12em .42em;border-radius:6px;
+  overflow-wrap:anywhere;word-break:break-word;
+}
+.band.deep code{background:rgba(255,255,255,.14);color:#cfe0ff;}
+.stack{margin-top:2.2rem;}
+.stack-sm{margin-top:1.4rem;}
+
+ul.plain,ol.plain{margin:0 0 1rem 0;padding:0;list-style:none;}
+ul.plain li{position:relative;padding-left:1.7rem;margin-bottom:.75rem;}
+ul.plain li::before{content:"";position:absolute;left:.1rem;top:.62em;width:9px;height:9px;border-radius:3px;background:var(--accent);transform:rotate(45deg);}
+ol.plain{counter-reset:n;}
+ol.plain li{position:relative;padding-left:2.4rem;margin-bottom:.9rem;counter-increment:n;}
+ol.plain li::before{
+  content:counter(n);position:absolute;left:0;top:.05em;width:1.65rem;height:1.65rem;border-radius:8px;
+  background:var(--accent);color:#fff;font-weight:900;font-size:.85rem;display:grid;place-items:center;font-family:'Nunito',sans-serif;
+}
+li:last-child{margin-bottom:0;}
+
+/* ============================================================
+   LAYOUT HELPERS
+   ============================================================ */
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:clamp(1.2rem,2.4vw,2rem);align-items:start;}
+.grid2.lean{grid-template-columns:1.25fr .95fr;}
+.grid2.lean-r{grid-template-columns:.95fr 1.25fr;}
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:clamp(1rem,2vw,1.5rem);align-items:start;}
+/* grid and flex children default to min-width:auto, which lets wide tables and
+   code blocks push the whole page sideways. This is the fix. */
+.grid2 > *,.grid3 > *,.branches > *,.stat-row > *,.slider-row > *{min-width:0;}
+.center-col{max-width:80ch;}
+
+/* ============================================================
+   CARDS + BOXES
+   ============================================================ */
+.card{
+  background:var(--panel);border:2px solid var(--rule);border-radius:var(--r);
+  padding:clamp(1.25rem,2vw,1.7rem);box-shadow:var(--shadow);
+}
+.card + .card{margin-top:1.1rem;}
+.card h4{color:var(--accent);margin-bottom:.6rem;font-size:1.1rem;}
+.card.flat{box-shadow:none;background:var(--panel-2);}
+.band.deep .card{background:rgba(255,255,255,.07);border-color:rgba(255,255,255,.16);box-shadow:none;color:#eef1ff;}
+.band.deep .card h4{color:#ffd489;}
+
+.note{
+  border-left:5px solid var(--accent);background:var(--accent-soft);
+  border-radius:0 var(--r-sm) var(--r-sm) 0;padding:1.1rem 1.35rem;margin:1.4rem 0;
+}
+.note .tagline{font-weight:900;color:var(--accent);display:block;margin-bottom:.3rem;font-size:.82rem;letter-spacing:.06em;text-transform:uppercase;}
+
+.analogy{
+  background:var(--panel);border:2px dashed var(--accent);border-radius:var(--r);
+  padding:clamp(1.2rem,2vw,1.6rem);margin:1.5rem 0;position:relative;
+}
+.analogy::before{
+  content:"ANALOGY";position:absolute;top:-.72rem;left:1.2rem;background:var(--accent);color:#fff;
+  font-size:.68rem;font-weight:900;letter-spacing:.1em;padding:.18rem .6rem;border-radius:999px;font-family:'Nunito',sans-serif;
+}
+.analogy h4{margin-bottom:.5rem;color:var(--ink);}
+.example{
+  background:var(--panel-2);border:2px solid var(--rule);border-left:5px solid var(--sun);
+  border-radius:var(--r-sm);padding:1.15rem 1.4rem;margin:1.4rem 0;
+}
+.example .tagline{font-weight:900;color:var(--sun);font-size:.78rem;letter-spacing:.09em;text-transform:uppercase;display:block;margin-bottom:.35rem;}
+
+.activity{
+  background:var(--panel);border:3px solid var(--mint);border-radius:var(--r);
+  padding:clamp(1.3rem,2.2vw,1.8rem);margin:1.8rem 0;box-shadow:var(--shadow);position:relative;
+}
+.activity::before{
+  content:"YOUR TURN";position:absolute;top:-.8rem;left:1.2rem;background:var(--mint);color:#fff;
+  font-size:.7rem;font-weight:900;letter-spacing:.1em;padding:.22rem .7rem;border-radius:999px;font-family:'Nunito',sans-serif;
+}
+.activity h4{color:var(--mint);margin-bottom:.6rem;}
+
+.stat-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:1rem;margin:1.4rem 0;}
+.stat{background:var(--panel);border:2px solid var(--rule);border-radius:var(--r-sm);padding:1rem 1.1rem;text-align:center;box-shadow:var(--shadow);}
+.stat .v{font-family:'Baloo 2',cursive;font-size:1.9rem;color:var(--accent);line-height:1;}
+.stat .l{font-size:.82rem;color:var(--dim);font-weight:800;margin-top:.35rem;}
+
+/* ============================================================
+   FORMULA
+   ============================================================ */
+.formula{
+  background:var(--accent-soft);border:2px dashed var(--accent);border-radius:var(--r-sm);
+  padding:1.2rem 1.5rem;margin:1.4rem 0;text-align:center;
+}
+.formula .eq{font-family:'JetBrains Mono',monospace;font-size:clamp(1rem,1.7vw,1.32rem);font-weight:600;color:var(--ink);line-height:1.7;}
+.formula .why{font-size:.88rem;color:var(--dim);font-weight:700;margin-top:.6rem;}
+.calc{font-family:'JetBrains Mono',monospace;font-size:.94rem;line-height:2;color:var(--ink);}
+.calc .r{color:var(--accent);font-weight:700;}
+
+/* ============================================================
+   TABLES
+   ============================================================ */
+.tbl-wrap{overflow-x:auto;border-radius:var(--r-sm);box-shadow:var(--shadow);margin:1.3rem 0;}
+table.data{width:100%;border-collapse:collapse;background:var(--panel);font-size:.95rem;min-width:420px;}
+table.data th{background:var(--accent);color:#fff;text-align:left;padding:.7rem .95rem;font-weight:800;font-size:.82rem;letter-spacing:.03em;text-transform:uppercase;}
+table.data td{padding:.62rem .95rem;border-bottom:1px solid var(--rule);}
+table.data tr:last-child td{border-bottom:none;}
+table.data tbody tr:hover{background:var(--accent-soft);}
+.yes{color:var(--mint);font-weight:900;}
+.no{color:var(--coral);font-weight:900;}
+
+/* ============================================================
+   CODE
+   ============================================================ */
+pre{
+  background:var(--code-bg);color:var(--code-ink);border-radius:var(--r-sm);
+  padding:1.3rem 1.5rem;overflow-x:auto;font-family:'JetBrains Mono','Courier New',monospace;
+  font-size:.86rem;line-height:1.75;margin:1.3rem 0;position:relative;border:2px solid var(--rule);
+}
+pre .c{color:#7f8ab8;font-style:italic;}
+pre .k{color:#ffb545;}
+pre .s{color:#7fd4ff;}
+pre .f{color:#a68cff;}
+pre .n{color:#3ad39b;}
+.copy-btn{
+  position:absolute;top:.7rem;right:.7rem;background:rgba(255,255,255,.1);color:#dfe5ff;
+  border:1px solid rgba(255,255,255,.22);border-radius:8px;padding:.3rem .7rem;
+  font-family:'Nunito',sans-serif;font-weight:800;font-size:.75rem;cursor:pointer;
+}
+.copy-btn:hover{background:rgba(255,255,255,.22);}
+
+/* ============================================================
+   BUTTONS + INTERACTIVE
+   ============================================================ */
+.btn-row{display:flex;flex-wrap:wrap;gap:.6rem;margin:1.1rem 0;}
+.btn{
+  font-family:'Nunito',sans-serif;font-weight:800;font-size:.93rem;cursor:pointer;
+  padding:.62rem 1.15rem;border-radius:11px;border:2px solid var(--rule);
+  background:var(--panel);color:var(--ink);transition:transform .15s,border-color .15s,background .15s,color .15s;
+}
+.btn:hover{border-color:var(--accent);transform:translateY(-2px);}
+.btn.on{background:var(--accent);border-color:var(--accent);color:#fff;}
+.btn.ghost{background:transparent;border-color:var(--accent);color:var(--accent);}
+.btn.ghost:hover{background:var(--accent);color:#fff;}
+.btn:focus-visible,.opt:focus-visible{outline:3px solid var(--accent);outline-offset:2px;}
+
+.widget{
+  background:var(--panel);border:2px solid var(--rule);border-radius:var(--r);
+  padding:clamp(1.2rem,2.2vw,1.8rem);box-shadow:var(--shadow);margin:1.6rem 0;
+}
+.widget-head{display:flex;align-items:center;gap:.6rem;margin-bottom:.9rem;flex-wrap:wrap;}
+.widget-head .badge{
+  background:var(--accent);color:#fff;font-size:.66rem;font-weight:900;letter-spacing:.1em;
+  padding:.2rem .6rem;border-radius:999px;font-family:'Nunito',sans-serif;
+}
+.widget-head h4{margin:0;font-size:1.08rem;}
+.hint{font-size:.88rem;color:var(--dim);font-weight:700;margin-top:.7rem;}
+
+.slider-row{display:flex;align-items:center;gap:1rem;margin:1.1rem 0;flex-wrap:wrap;}
+.slider-row label{font-weight:800;font-size:.9rem;white-space:nowrap;}
+input[type=range]{flex:1;min-width:160px;accent-color:var(--accent);height:6px;}
+.big-val{font-family:'Baloo 2',cursive;font-size:1.55rem;color:var(--accent);min-width:3.5ch;text-align:center;}
+
+.meter{height:14px;border-radius:999px;background:var(--rule);overflow:hidden;}
+.meter-fill{height:100%;border-radius:999px;background:var(--accent);transition:width .35s ease;}
+.meter-row{display:flex;align-items:center;gap:.85rem;margin-bottom:.7rem;}
+.meter-row .lbl{width:8.5rem;font-weight:800;font-size:.88rem;}
+.meter-row .num{width:4.2ch;text-align:right;font-weight:900;font-size:.88rem;font-family:'JetBrains Mono',monospace;}
+
+.dots{display:flex;flex-wrap:wrap;gap:6px;margin-top:.6rem;}
+.dot{width:16px;height:16px;border-radius:50%;}
+.dot.y{background:var(--mint);}
+.dot.n{background:var(--coral);}
+
+.branches{display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-top:1rem;}
+.branch{background:var(--panel-2);border:2px solid var(--rule);border-radius:var(--r-sm);padding:1rem 1.15rem;}
+.branch h5{margin:0 0 .45rem 0;font-family:'Baloo 2',cursive;font-size:1rem;color:var(--accent);font-weight:700;}
+.branch .sm{font-size:.85rem;color:var(--dim);font-weight:700;margin-top:.5rem;}
+
+.verdict{margin-top:1rem;padding:.85rem 1.1rem;border-radius:var(--r-sm);background:var(--accent-soft);font-weight:800;font-size:.94rem;}
+
+.chips{display:flex;flex-wrap:wrap;gap:.4rem;}
+.chip{padding:.28rem .68rem;border-radius:8px;font-weight:800;font-size:.83rem;}
+.chip.y{background:var(--mint-soft);color:var(--mint);}
+.chip.n{background:var(--coral-soft);color:var(--coral);}
+
+/* SVG diagram bits */
+svg text{font-family:'Nunito',sans-serif;font-weight:700;fill:var(--ink);}
+.edge{stroke:var(--rule-strong);stroke-width:2;transition:stroke .3s,stroke-width .3s;}
+.edge.lit{stroke:var(--accent);stroke-width:4;}
+.node{transition:opacity .3s,filter .3s;cursor:pointer;}
+.node.dim{opacity:.28;}
+.node.lit{filter:drop-shadow(0 0 7px var(--accent));}
+
+.legend-item{
+  display:flex;gap:.85rem;align-items:flex-start;padding:.6rem .7rem;border-radius:10px;
+  border:2px solid transparent;cursor:pointer;transition:background .2s,border-color .2s;margin-bottom:.4rem;
+}
+.legend-item:hover,.legend-item.on{background:var(--accent-soft);border-color:var(--accent);}
+.legend-dot{width:14px;height:14px;border-radius:4px;margin-top:.42rem;flex:0 0 auto;}
+.legend-item div strong{display:block;}
+
+/* accordion */
+.acc-item{border:2px solid var(--rule);border-radius:var(--r-sm);background:var(--panel);margin-bottom:.7rem;overflow:hidden;}
+.acc-head{
+  display:flex;justify-content:space-between;align-items:center;gap:1rem;width:100%;
+  padding:.9rem 1.15rem;cursor:pointer;background:none;border:none;text-align:left;
+  font-family:'Nunito',sans-serif;font-size:1rem;color:var(--ink);font-weight:700;
+}
+.acc-head:hover{background:var(--accent-soft);}
+.acc-head .arrow{font-size:1.3rem;color:var(--accent);transition:transform .25s;line-height:1;}
+.acc-item.open .arrow{transform:rotate(90deg);}
+.acc-body{max-height:0;overflow:hidden;transition:max-height .35s ease;}
+.acc-item.open .acc-body{max-height:760px;}
+.acc-body .in{padding:0 1.15rem 1.1rem 1.15rem;color:var(--dim);font-weight:600;font-size:.95rem;}
+.acc-body .in strong{color:var(--ink);}
+
+/* reveal */
+.reveal-body{max-height:0;overflow:hidden;transition:max-height .45s ease;}
+.reveal-body.open{max-height:2400px;margin-top:1rem;}
+
+/* ============================================================
+   QUIZ
+   ============================================================ */
+.quiz{
+  background:var(--panel);border:3px solid var(--accent);border-radius:var(--r);
+  padding:clamp(1.3rem,2.4vw,2rem);margin:2.4rem 0 0 0;box-shadow:var(--shadow-lift);position:relative;
+}
+.quiz::before{
+  content:"CHECK YOURSELF";position:absolute;top:-.82rem;left:1.3rem;background:var(--accent);color:#fff;
+  font-size:.7rem;font-weight:900;letter-spacing:.1em;padding:.24rem .75rem;border-radius:999px;font-family:'Nunito',sans-serif;
+}
+.quiz-head{display:flex;justify-content:space-between;align-items:baseline;gap:1rem;margin-bottom:1.2rem;flex-wrap:wrap;}
+.quiz-head h4{font-size:1.2rem;color:var(--ink);}
+.score{font-weight:900;font-size:.9rem;color:var(--accent);background:var(--accent-soft);padding:.25rem .8rem;border-radius:999px;}
+.q + .q{margin-top:1.7rem;padding-top:1.7rem;border-top:2px dashed var(--rule);}
+.q-text{font-weight:800;margin-bottom:.9rem;font-size:1.02rem;}
+.q-text .qn{color:var(--accent);margin-right:.4rem;}
+.opts{display:flex;flex-direction:column;gap:.55rem;}
+.opt{
+  text-align:left;padding:.8rem 1.1rem;border-radius:12px;border:2px solid var(--rule);
+  background:var(--panel-2);color:var(--ink);font-family:'Nunito',sans-serif;font-weight:700;font-size:.97rem;
+  cursor:pointer;transition:border-color .18s,background .18s,transform .12s;line-height:1.5;
+}
+.opt:hover:not([disabled]){border-color:var(--accent);transform:translateX(3px);}
+.opt[disabled]{cursor:default;}
+.opt.right{background:var(--mint-soft);border-color:var(--mint);color:var(--ink);}
+.opt.wrong{background:var(--coral-soft);border-color:var(--coral);color:var(--ink);}
+.opt .mark{float:right;font-weight:900;}
+.fb{
+  display:none;margin-top:.85rem;padding:.9rem 1.15rem;border-radius:var(--r-sm);
+  background:var(--accent-soft);border-left:4px solid var(--accent);font-weight:600;font-size:.95rem;line-height:1.6;
+}
+.fb.show{display:block;}
+.fb b{font-weight:900;}
+
+/* ============================================================
+   CLOSING
+   ============================================================ */
+.checklist-item{display:flex;gap:.85rem;align-items:flex-start;padding:.65rem .5rem;cursor:pointer;border-radius:10px;transition:background .2s;}
+.checklist-item:hover{background:var(--accent-soft);}
+.check-box{width:22px;height:22px;border-radius:7px;border:2.5px solid var(--rule-strong);flex:0 0 auto;margin-top:.15rem;position:relative;transition:all .2s;}
+.checklist-item.done .check-box{background:var(--mint);border-color:var(--mint);}
+.checklist-item.done .check-box::after{content:"✓";position:absolute;inset:0;display:grid;place-items:center;color:#fff;font-weight:900;font-size:.85rem;}
+.checklist-item.done .ctext{opacity:.55;text-decoration:line-through;}
+
+footer{padding:2.6rem var(--pad-x) 3.4rem;text-align:center;color:var(--dim);font-weight:700;font-size:.9rem;background:var(--bg);}
+
+/* hero entrance — pure CSS, runs once, never gates visibility of body content */
+@keyframes riseIn{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:none}}
+#hero .inner > div:first-child{animation:riseIn .7s ease both;}
+#hero .inner > div:last-child{animation:riseIn .7s ease .15s both;}
+@media print{
+  #progress{display:none;}
+  #hero .inner > div{animation:none;}
+  .band{break-inside:auto;}
+  .quiz,.activity,.widget{break-inside:avoid;}
+}
+
+/* ============================================================
+   RESPONSIVE
+   ============================================================ */
+@media (max-width:1000px){
+  #hero .inner{grid-template-columns:1fr;}
+  .grid2,.grid2.lean,.grid2.lean-r,.grid3{grid-template-columns:1fr;}
+  .branches{grid-template-columns:1fr;}
+}
+@media (max-width:560px){
+  .stat-row{grid-template-columns:1fr 1fr;}
+  .meter-row .lbl{width:6.5rem;font-size:.82rem;}
+  h2.sec{max-width:none;}
+  .quiz::before,.activity::before,.analogy::before{left:.9rem;}
+}
+@media (prefers-reduced-motion:reduce){
+  *{animation:none !important;transition:none !important;}
+  html{scroll-behavior:auto;}
+}
+
+/* ============================================================
+   SLIDE DECK
+   Every direct child <section> of #doc is one full-screen slide.
+   Only .active is visible/interactive; others sit inert underneath.
+   ============================================================ */
+html{scroll-behavior:auto;}
+body{height:100vh;overflow:hidden;}
+#doc{position:relative;height:100vh;overflow:hidden;}
+#doc > section{
+  position:absolute;inset:0;width:100%;height:100vh;
+  overflow-y:auto;-webkit-overflow-scrolling:touch;
+  opacity:0;visibility:hidden;pointer-events:none;
+  transition:opacity .32s ease;
+  scrollbar-width:thin;
+}
+#doc > section.active{opacity:1;visibility:visible;pointer-events:auto;z-index:2;}
+body:not(.slides-ready) #doc > section:first-child{opacity:1;visibility:visible;}
+#doc > section::-webkit-scrollbar{width:8px;}
+#doc > section::-webkit-scrollbar-thumb{background:var(--rule-strong);border-radius:8px;}
+
+/* slide chrome: a quiet counter pinned to each slide's own corner */
+#doc > section .inner{padding-bottom:4.2rem;}
+#hero .inner{padding-bottom:0;}
+
+/* ============================================================
+   BOTTOM NAV BAR
+   ============================================================ */
+#slideNav{
+  position:fixed;left:0;right:0;bottom:0;z-index:60;
+  display:flex;align-items:center;justify-content:space-between;gap:1rem;
+  padding:.7rem clamp(1rem,3vw,2rem);
+  background:var(--panel);border-top:1px solid var(--rule);
+  box-shadow:0 -8px 24px -18px rgba(18,22,45,.5);
+  font-weight:800;color:var(--dim);font-size:.85rem;text-align:left;
+}
+.nav-brand{white-space:nowrap;}
+.nav-hint{white-space:nowrap;display:none;}
+@media (min-width:680px){.nav-hint{display:inline;}}
+.nav-controls{display:flex;align-items:center;gap:.9rem;margin:0 auto;}
+.nav-btn{
+  width:2.4rem;height:2.4rem;border-radius:50%;border:2px solid var(--rule);
+  background:var(--panel-2);color:var(--ink);font-size:1.2rem;line-height:1;cursor:pointer;
+  display:grid;place-items:center;transition:border-color .15s,transform .12s,background .15s;
+}
+.nav-btn:hover:not(:disabled){border-color:var(--accent);color:var(--accent);transform:translateY(-1px);}
+.nav-btn:disabled{opacity:.35;cursor:default;}
+.nav-counter{font-family:'JetBrains Mono',monospace;min-width:5.5ch;text-align:center;color:var(--ink);}
+
+/* ============================================================
+   PPT-STYLE QUIZ SLIDES
+   ============================================================ */
+.quiz-slide .inner{
+  min-height:calc(100vh - 4rem);
+  padding-top:clamp(1.5rem,9vh,6rem);
+  text-align:center;
+}
+.quiz-slide-topic{text-align:center;max-width:none;color:var(--dim) !important;font-size:clamp(1.1rem,2vw,1.4rem) !important;margin-bottom:1.6rem;}
+.quiz-slide .quiz{max-width:760px;margin:0 auto;width:100%;text-align:left;}
+
+.quiz{
+  background:linear-gradient(180deg,var(--panel) 0%,var(--panel-2) 100%);
+}
+.quiz::before{
+  font-size:.72rem;padding:.32rem .9rem .32rem 2.1rem;
+  background:var(--accent) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='white'%3E%3Cpath d='M9 21h6v-1H9v1zm3-19C7.03 2 3 6.03 3 11c0 3.31 1.79 5.94 4.5 7.36V21h9v-2.64C19.21 16.94 21 14.31 21 11c0-4.97-4.03-9-9-9z'/%3E%3C/svg%3E") no-repeat .55rem 50%/1.1rem;
+}
+.quiz-head h4{font-size:clamp(1.15rem,2.4vw,1.5rem);}
+.score{font-size:1rem;padding:.35rem 1rem;}
+.q-text{font-size:clamp(1.05rem,1.9vw,1.28rem);}
+.opts{display:grid;grid-template-columns:1fr 1fr;gap:.7rem;}
+@media (max-width:640px){.opts{grid-template-columns:1fr;}}
+.opt{
+  border-width:2.5px;border-radius:14px;padding:1rem 1.2rem 1rem 2.7rem;position:relative;font-size:1rem;
+}
+.opt::before{
+  content:"";position:absolute;left:.9rem;top:50%;transform:translateY(-50%);
+  width:1.15rem;height:1.15rem;border-radius:5px;background:var(--accent);opacity:.55;
+}
+.opts .opt:nth-child(1)::before{background:var(--sky);}
+.opts .opt:nth-child(2)::before{background:var(--coral);}
+.opts .opt:nth-child(3)::before{background:var(--sun);}
+.opts .opt:nth-child(4)::before{background:var(--mint);}
+.opt:hover:not([disabled]){transform:translateY(-2px) translateX(0);box-shadow:var(--shadow);}
+.opt.right{transform:none;}
+.opt.right::before{background:var(--mint);opacity:1;}
+.opt.wrong::before{background:var(--coral);opacity:1;}
+.opt .mark{font-size:1.15rem;}
+
+/* ============================================================
+   PRINT: unfold the deck back into a scrollable document
+   ============================================================ */
+@media print{
+  html,body{height:auto;overflow:visible;}
+  #doc{height:auto;overflow:visible;}
+  #doc > section{
+    position:static !important;opacity:1 !important;visibility:visible !important;
+    height:auto !important;overflow:visible !important;pointer-events:auto !important;
+  }
+  #slideNav{display:none;}
+}
+</style>
+</head>
+<body>
+<div id="progress"></div>
+<main id="doc">
+<!-- ========================= HERO ========================= -->
+<section class="slide" data-slide-index="0" id="hero">
+<div class="inner">
+<div>
+<h1 class="hero-title">Decision<br/><span class="g">Trees</span></h1>
+<p class="hero-sub">The one algorithm you can draw on a whiteboard, explain to your grandmother, and still find running inside half the machine learning systems in production today.</p>
+<div class="hero-chips">
+<span class="hero-chip">🌳 Splits &amp; leaves</span>
+<span class="hero-chip">📐 Gini &amp; Entropy</span>
+<span class="hero-chip">✂️ Pruning</span>
+<span class="hero-chip">🐍 scikit-learn</span>
+</div>
+<div class="scroll-hint">Use your keyboard's arrow keys to move through the deck</div>
+</div>
+<div>
+<svg aria-label="A small decision tree" viewBox="0 0 340 300" width="100%">
+<line class="edge" x1="170" x2="90" y1="52" y2="130"></line>
+<line class="edge" x1="170" x2="250" y1="52" y2="130"></line>
+<line class="edge" x1="90" x2="45" y1="158" y2="234"></line>
+<line class="edge" x1="90" x2="135" y1="158" y2="234"></line>
+<line class="edge" x1="250" x2="205" y1="158" y2="234"></line>
+<line class="edge" x1="250" x2="295" y1="158" y2="234"></line>
+<g>
+<rect fill="#1f7fff" height="40" opacity=".2" rx="10" stroke="#1f7fff" stroke-width="2" width="104" x="118" y="18"></rect>
+<text font-size="13" text-anchor="middle" x="170" y="43">Question?</text>
+</g>
+<g>
+<rect fill="#7c5cff" height="36" opacity=".2" rx="10" stroke="#7c5cff" stroke-width="2" width="96" x="42" y="126"></rect>
+<text font-size="12" text-anchor="middle" x="90" y="149">Question?</text>
+</g>
+<g>
+<rect fill="#7c5cff" height="36" opacity=".2" rx="10" stroke="#7c5cff" stroke-width="2" width="96" x="202" y="126"></rect>
+<text font-size="12" text-anchor="middle" x="250" y="149">Question?</text>
+</g>
+<g><rect fill="#0eab74" height="38" opacity=".22" rx="19" stroke="#0eab74" stroke-width="2" width="74" x="8" y="230"></rect><text font-size="12" text-anchor="middle" x="45" y="254">Yes</text></g>
+<g><rect fill="#ff4d68" height="38" opacity=".22" rx="19" stroke="#ff4d68" stroke-width="2" width="74" x="98" y="230"></rect><text font-size="12" text-anchor="middle" x="135" y="254">No</text></g>
+<g><rect fill="#ff4d68" height="38" opacity=".22" rx="19" stroke="#ff4d68" stroke-width="2" width="74" x="168" y="230"></rect><text font-size="12" text-anchor="middle" x="205" y="254">No</text></g>
+<g><rect fill="#0eab74" height="38" opacity=".22" rx="19" stroke="#0eab74" stroke-width="2" width="74" x="258" y="230"></rect><text font-size="12" text-anchor="middle" x="295" y="254">Yes</text></g>
+</svg>
+</div>
+</div>
+</section>
+<!-- ========================= 1. WHAT IS A DECISION TREE ========================= -->
+<section class="band alt slide" data-a="sky" data-slide-index="1">
+<div class="inner">
+<div class="eyebrow">Start here</div>
+<h2 class="sec">What is a decision tree?</h2>
+<p class="lede">A decision tree is a <strong>flowchart of questions</strong> that ends in an answer. What makes it machine learning rather than just a flowchart is that <strong>nobody writes the questions</strong>. The algorithm reads your data and works out, all by itself, which questions to ask and in what order.</p>
+<div class="grid2 lean stack">
+<div>
+<p>You already use decision trees every single day without calling them that.</p>
+<p>When a doctor asks "do you have a fever?", then "how long has it lasted?", then "any rash?" — that is a decision tree. Each answer narrows the possibilities and points to the next question. Nobody asks about a rash first, because fever splits the crowd of possible illnesses much more usefully.</p>
+<p>When you check whether a mango is ripe, you squeeze it, then smell the stem, then look at the colour. Same idea. A short chain of cheap questions, ending in a decision: buy it or leave it.</p>
+<p>A decision tree algorithm does exactly this, except it discovers the best order of questions by measuring, on real data, which question separates things most cleanly.</p>
+</div>
+<div>
+<div class="card">
+<h4>The one-line definition</h4>
+<p>A supervised learning model that repeatedly splits data into smaller groups using yes/no questions about its features, until each group is pure enough to make a prediction.</p>
+</div>
+<div class="card">
+<h4>It does two jobs</h4>
+<p style="margin-bottom:.5rem"><strong>Classification</strong> — predicts a label. Spam or not spam. Approve or reject. Cat, dog, or horse.</p>
+<p><strong>Regression</strong> — predicts a number. House price. Tomorrow's temperature. Delivery time in minutes.</p>
+</div>
+</div>
+</div>
+<div class="analogy">
+<h4>Twenty Questions, played well</h4>
+<p>Think of the party game. Your friend picks an animal and you get twenty yes/no questions to guess it. A beginner asks <em>"Is it a golden retriever?"</em> and burns a question to eliminate one possibility. An expert asks <em>"Does it have fur?"</em> and cuts the field roughly in half in a single move.</p>
+<p style="margin-bottom:0">That instinct — <strong>ask the question that splits the group most evenly and most usefully</strong> — is the entire mathematics of decision trees. Everything technical that follows on this page is just a formal way of measuring which question is the "does it have fur?" of your dataset.</p>
+</div>
+<div class="widget">
+<div class="widget-head"><span class="badge">TRY IT</span><h4>Play the game: which question is worth asking?</h4></div>
+<p class="dim" style="margin-bottom:.4rem">Twenty animals are hiding below. Ask one question and watch how it splits them.</p>
+<div class="btn-row">
+<button class="btn" id="qFurBtn" onclick="askQ('fur')">🐾 "Does it have fur?"</button>
+<button class="btn" id="qGoldBtn" onclick="askQ('golden')">🐕 "Is it a golden retriever?"</button>
+<button class="btn" id="qLegBtn" onclick="askQ('legs')">🦵 "Does it have more than two legs?"</button>
+</div>
+<div class="branches" id="qResult" style="display:none">
+<div class="branch"><h5 id="qLeftLbl">Yes</h5><div class="dots" id="qLeftDots"></div><div class="sm" id="qLeftSm"></div></div>
+<div class="branch"><h5 id="qRightLbl">No</h5><div class="dots" id="qRightDots"></div><div class="sm" id="qRightSm"></div></div>
+</div>
+<div class="verdict" id="qVerdict" style="display:none"></div>
+<p class="hint" id="qHint">Pick a question above to split the twenty animals.</p>
+</div>
+<div class="example">
+<span class="tagline">Where you'll actually meet them</span>
+<p style="margin-bottom:0">Bank loan approvals. Insurance claim triage. Hospital readmission risk. Which customer is about to cancel their subscription. Which transaction looks fraudulent. Trees are popular in these places for one specific reason: when a regulator or a customer asks <em>"why was I rejected?"</em>, you can print the exact path the model took. A neural network cannot do that.</p>
+</div>
+<div class="activity">
+<h4>Two minutes, out loud</h4>
+<p>Pick any everyday decision you make on autopilot — which route to take to work, whether to carry an umbrella, which chai stall to stop at. Write down the three questions your brain actually asks, in order.</p>
+<p style="margin-bottom:0">Now ask yourself the important one: <strong>why is your first question first?</strong> Nine times out of ten, it is because that question rules out the most options. Congratulations, you just derived the root node selection rule.</p>
+</div>
+
+</div>
+</section><section class="band alt quiz-slide slide" data-a="sky" data-slide-index="2"><div class="inner"><h2 class="sec quiz-slide-topic">What is a decision tree?</h2><div class="quiz" data-quiz="">
+<div class="quiz-head"><h4>Quiz — the big idea</h4><span class="score" data-score="">0 / 3</span></div>
+<div class="q">
+<p class="q-text"><span class="qn">Q1.</span> What makes a decision tree a machine learning model rather than an ordinary flowchart?</p>
+<div class="opts">
+<button class="opt">It is drawn upside down with the root on top</button>
+<button class="opt" data-correct="">The questions and their order are learned from data, not written by a human</button>
+<button class="opt">It can only answer yes or no</button>
+<button class="opt">It runs on a GPU</button>
+</div>
+<div class="fb"><b>An ordinary flowchart is authored by a person.</b> A decision tree derives its questions, their order, and its cut-off points automatically by measuring which split separates the training data best.</div>
+</div>
+<div class="q">
+<p class="q-text"><span class="qn">Q2.</span> In the Twenty Questions analogy, why is "does it have fur?" a better opening question than "is it a golden retriever?"</p>
+<div class="opts">
+<button class="opt">It is a shorter sentence</button>
+<button class="opt">Golden retrievers are rare animals</button>
+<button class="opt" data-correct="">It divides the remaining possibilities into two large, meaningfully different groups</button>
+<button class="opt">Fur is easier to observe than breed</button>
+</div>
+<div class="fb"><b>It is about how much the group shrinks.</b> "Is it a golden retriever?" almost always returns No and eliminates one candidate. "Does it have fur?" eliminates roughly half the field whichever way it goes.</div>
+</div>
+<div class="q">
+<p class="q-text"><span class="qn">Q3.</span> A tree that predicts tomorrow's electricity demand in megawatts is doing which job?</p>
+<div class="opts">
+<button class="opt">Classification</button>
+<button class="opt" data-correct="">Regression</button>
+<button class="opt">Clustering</button>
+<button class="opt">Neither — trees only handle categories</button>
+</div>
+<div class="fb"><b>Regression.</b> The output is a continuous number rather than a label, so the leaves store an average value instead of a class. We build one of these later on this page.</div>
+</div>
+</div></div></section>
+<!-- ========================= 2. ANATOMY ========================= -->
+<section class="band plain slide" data-a="grape" data-slide-index="3">
+<div class="inner">
+<div class="eyebrow">The vocabulary</div>
+<h2 class="sec">The parts of a tree</h2>
+<p class="lede">Before we can talk about how a tree is built, we need names for its pieces. The whole vocabulary is borrowed from botany, with one strange twist: <strong>this tree grows downwards</strong>. The root sits at the top and the leaves hang at the bottom.</p>
+<div class="grid2 lean stack">
+<div>
+<svg aria-label="Labelled decision tree" id="anatomySvg" viewBox="0 0 480 320" width="100%">
+<line class="edge part" data-part="branch" x1="240" x2="130" y1="58" y2="140"></line>
+<line class="edge part" data-part="branch" x1="240" x2="350" y1="58" y2="140"></line>
+<line class="edge part" data-part="branch" x1="130" x2="70" y1="176" y2="250"></line>
+<line class="edge part" data-part="branch" x1="130" x2="195" y1="176" y2="250"></line>
+<line class="edge part" data-part="branch" x1="350" x2="290" y1="176" y2="250"></line>
+<line class="edge part" data-part="branch" x1="350" x2="415" y1="176" y2="250"></line>
+<text fill="#586185" font-size="11" x="176" y="105">yes</text>
+<text fill="#586185" font-size="11" x="296" y="105">no</text>
+<g class="node part" data-part="root">
+<rect fill="#1f7fff" height="42" opacity=".2" rx="10" stroke="#1f7fff" stroke-width="2" width="128" x="176" y="20"></rect>
+<text font-size="13" text-anchor="middle" x="240" y="46">Root node</text>
+</g>
+<g class="node part" data-part="internal">
+<rect fill="#7c5cff" height="40" opacity=".2" rx="10" stroke="#7c5cff" stroke-width="2" width="120" x="70" y="140"></rect>
+<text font-size="12" text-anchor="middle" x="130" y="165">Internal node</text>
+</g>
+<g class="node part" data-part="internal">
+<rect fill="#7c5cff" height="40" opacity=".2" rx="10" stroke="#7c5cff" stroke-width="2" width="120" x="290" y="140"></rect>
+<text font-size="12" text-anchor="middle" x="350" y="165">Internal node</text>
+</g>
+<g class="node part" data-part="leaf">
+<rect fill="#0eab74" height="40" opacity=".22" rx="20" stroke="#0eab74" stroke-width="2" width="88" x="26" y="246"></rect>
+<text font-size="12" text-anchor="middle" x="70" y="271">Leaf</text>
+</g>
+<g class="node part" data-part="leaf">
+<rect fill="#0eab74" height="40" opacity=".22" rx="20" stroke="#0eab74" stroke-width="2" width="88" x="151" y="246"></rect>
+<text font-size="12" text-anchor="middle" x="195" y="271">Leaf</text>
+</g>
+<g class="node part" data-part="leaf">
+<rect fill="#0eab74" height="40" opacity=".22" rx="20" stroke="#0eab74" stroke-width="2" width="88" x="246" y="246"></rect>
+<text font-size="12" text-anchor="middle" x="290" y="271">Leaf</text>
+</g>
+<g class="node part" data-part="leaf">
+<rect fill="#0eab74" height="40" opacity=".22" rx="20" stroke="#0eab74" stroke-width="2" width="88" x="371" y="246"></rect>
+<text font-size="12" text-anchor="middle" x="415" y="271">Leaf</text>
+</g>
+<g class="node part" data-part="depth" opacity="0">
+<line stroke="#f0980c" stroke-dasharray="5 4" stroke-width="2" x1="452" x2="452" y1="41" y2="266"></line>
+<circle cx="452" cy="41" fill="#f0980c" r="4"></circle>
+<circle cx="452" cy="160" fill="#f0980c" r="4"></circle>
+<circle cx="452" cy="266" fill="#f0980c" r="4"></circle>
+<text fill="#f0980c" font-size="11" x="466" y="46">0</text>
+<text fill="#f0980c" font-size="11" x="466" y="165">1</text>
+<text fill="#f0980c" font-size="11" x="466" y="271">2</text>
+</g>
+</svg>
+<p class="hint">Hover or tap a label on the right to highlight that part of the diagram.</p>
+</div>
+<div id="anatomyLegend">
+<div class="legend-item" data-part="root"><span class="legend-dot" style="background:#1f7fff"></span><div><strong>Root node</strong>The very first question, asked of every single row in your data. It is chosen because it splits the data better than any other available question.</div></div>
+<div class="legend-item" data-part="internal"><span class="legend-dot" style="background:#7c5cff"></span><div><strong>Internal node</strong>A follow-up question, asked only of the smaller slice of data that reached it. Also called a decision node or a split node.</div></div>
+<div class="legend-item" data-part="branch"><span class="legend-dot" style="background:#8b93ad"></span><div><strong>Branch or edge</strong>The path you take out of a node depending on the answer. A binary tree has exactly two branches per node.</div></div>
+<div class="legend-item" data-part="leaf"><span class="legend-dot" style="background:#0eab74"></span><div><strong>Leaf node</strong>A dead end, and a good one. No more questions get asked — the tree announces its prediction here.</div></div>
+<div class="legend-item" data-part="depth"><span class="legend-dot" style="background:#f0980c"></span><div><strong>Depth</strong>How many questions deep the longest path runs. The root is depth 0. Depth is the single most important dial you will turn later.</div></div>
+</div>
+</div>
+<h3 class="sub">Four more words worth knowing</h3>
+<div class="grid2">
+<div class="card flat">
+<h4>Splitting</h4>
+<p>The act of dividing the rows at a node into two groups using one condition, such as <code>credit_score == "Good"</code> or <code>age &lt;= 34.5</code>.</p>
+</div>
+<div class="card flat">
+<h4>Parent and child</h4>
+<p>A node that splits is the parent. The two nodes it feeds are its children. Every node except the root has exactly one parent.</p>
+</div>
+<div class="card flat">
+<h4>Subtree</h4>
+<p>Any node together with everything hanging beneath it. Pruning, later on, means chopping off a whole subtree and turning its top into a leaf.</p>
+</div>
+<div class="card flat">
+<h4>Pure node</h4>
+<p>A node where every row shares the same answer — all Approved, or all Rejected. Purity is the goal of every split the tree makes.</p>
+</div>
+</div>
+<div class="analogy">
+<h4>An office org chart, upside down</h4>
+<p style="margin-bottom:0">The CEO at the top is the root and hears about everything. Managers below handle a slice each. The people at the bottom — the leaves — actually do the work and produce the output. Depth is the number of layers between the CEO and the ground floor. A very deep org chart is slow and fussy; a very flat one leaves the CEO deciding everything alone. That trade-off is exactly the one you will tune later.</p>
+</div>
+
+</div>
+</section><section class="band plain quiz-slide slide" data-a="grape" data-slide-index="4"><div class="inner"><h2 class="sec quiz-slide-topic">The parts of a tree</h2><div class="quiz" data-quiz="">
+<div class="quiz-head"><h4>Quiz — anatomy</h4><span class="score" data-score="">0 / 3</span></div>
+<div class="q">
+<p class="q-text"><span class="qn">Q1.</span> How many parent nodes does the root node have?</p>
+<div class="opts">
+<button class="opt" data-correct="">Zero</button>
+<button class="opt">One</button>
+<button class="opt">Two</button>
+<button class="opt">It depends on the depth</button>
+</div>
+<div class="fb"><b>Zero.</b> The root is where everything begins, so nothing feeds into it. Every other node in the tree has exactly one parent.</div>
+</div>
+<div class="q">
+<p class="q-text"><span class="qn">Q2.</span> A node contains 30 rows, and all 30 are labelled "Rejected". What do we call this node?</p>
+<div class="opts">
+<button class="opt">An overfitted node</button>
+<button class="opt" data-correct="">A pure node — it can safely become a leaf</button>
+<button class="opt">A root node</button>
+<button class="opt">An empty node</button>
+</div>
+<div class="fb"><b>It is pure.</b> There is no mixture left to separate, so asking another question would gain nothing. The tree stops here and predicts "Rejected".</div>
+</div>
+<div class="q">
+<p class="q-text"><span class="qn">Q3.</span> A tree asks at most three questions before reaching any prediction. What is its depth?</p>
+<div class="opts">
+<button class="opt">2</button>
+<button class="opt" data-correct="">3</button>
+<button class="opt">4</button>
+<button class="opt">8</button>
+</div>
+<div class="fb"><b>Depth 3.</b> Depth counts the number of splits along the longest root-to-leaf path. The root sits at level 0, so three questions means the deepest leaves live at level 3.</div>
+</div>
+</div></div></section>
+<!-- ========================= 3. MAKING A PREDICTION ========================= -->
+<section class="band alt slide" data-a="teal" data-slide-index="5">
+<div class="inner">
+<div class="eyebrow">Using a finished tree</div>
+<h2 class="sec">How a prediction actually happens</h2>
+<p class="lede">Building a tree is the hard part. <strong>Using</strong> one is almost insultingly simple: start at the root, answer its question, walk down the matching branch, repeat until you hit a leaf. Whatever the leaf says, that is your prediction.</p>
+<div class="grid2 lean stack">
+<div>
+<p>Notice what this means in practice. Making a prediction costs a handful of comparisons — no matrix multiplication, no floating point heroics. A decision tree of depth 10 answers at most 10 questions no matter how many million rows it was trained on. This is why trees are used in latency-sensitive places like ad-serving and fraud checks.</p>
+<p>It also means that a prediction always comes with a free explanation. The path <em>is</em> the reason. "Rejected because credit score was Bad, and income was below ₹40,000" is a sentence you can put in a letter to a customer.</p>
+<div class="note">
+<span class="tagline">Worth pausing on</span>
+<p style="margin-bottom:0">Each row only ever visits one path. Rows do not go down both branches. This is why the groups at each level get smaller and smaller as you descend.</p>
+</div>
+</div>
+<div>
+<div class="widget" style="margin-top:0">
+<div class="widget-head"><span class="badge">TRY IT</span><h4>Send an applicant down the tree</h4></div>
+<div class="btn-row">
+<button class="btn" id="walkGood" onclick="walkTree('good')">Credit score: Good</button>
+<button class="btn" id="walkBad" onclick="walkTree('bad')">Credit score: Bad</button>
+</div>
+<svg aria-label="Two-leaf decision tree" viewBox="0 0 320 230" width="100%">
+<line class="edge" id="wLineL" x1="160" x2="75" y1="52" y2="145"></line>
+<line class="edge" id="wLineR" x1="160" x2="245" y1="52" y2="145"></line>
+<g class="node" id="wRoot">
+<rect fill="#0aa3b8" height="44" opacity=".2" rx="10" stroke="#0aa3b8" stroke-width="2" width="124" x="98" y="14"></rect>
+<text font-size="12" text-anchor="middle" x="160" y="34">Credit score?</text>
+<text fill="#586185" font-size="10" text-anchor="middle" x="160" y="50">the root question</text>
+</g>
+<g class="node dim" id="wLeafGood">
+<rect fill="#0eab74" height="54" opacity=".22" rx="22" stroke="#0eab74" stroke-width="2" width="116" x="18" y="145"></rect>
+<text font-size="11" text-anchor="middle" x="76" y="168">Good →</text>
+<text font-size="13" font-weight="800" text-anchor="middle" x="76" y="187">Approved</text>
+</g>
+<g class="node dim" id="wLeafBad">
+<rect fill="#ff4d68" height="54" opacity=".22" rx="22" stroke="#ff4d68" stroke-width="2" width="116" x="188" y="145"></rect>
+<text font-size="11" text-anchor="middle" x="246" y="168">Bad →</text>
+<text font-size="13" font-weight="800" text-anchor="middle" x="246" y="187">Rejected</text>
+</g>
+</svg>
+<p class="hint" id="walkNote">Choose a credit score to watch the path light up.</p>
+</div>
+</div>
+</div>
+<div class="example">
+<span class="tagline">A real path, written out</span>
+<p style="margin-bottom:0">Imagine a hospital tree for triage. A patient arrives. <em>Temperature above 38°C?</em> Yes → go left. <em>Oxygen saturation below 94%?</em> No → go right. <em>Age above 65?</em> Yes → go left, and land on a leaf labelled "Priority 2, review within 30 minutes." Three questions, one answer, and a written justification for the file.</p>
+</div>
+
+</div>
+</section><section class="band alt quiz-slide slide" data-a="teal" data-slide-index="6"><div class="inner"><h2 class="sec quiz-slide-topic">How a prediction actually happens</h2><div class="quiz" data-quiz="">
+<div class="quiz-head"><h4>Quiz — prediction</h4><span class="score" data-score="">0 / 2</span></div>
+<div class="q">
+<p class="q-text"><span class="qn">Q1.</span> A trained tree has depth 6. How many questions will it ask about a brand new row, at most?</p>
+<div class="opts">
+<button class="opt">64, one per possible leaf</button>
+<button class="opt" data-correct="">6, one per level along a single path</button>
+<button class="opt">As many as there are features</button>
+<button class="opt">As many as there are training rows</button>
+</div>
+<div class="fb"><b>Six.</b> A row travels down exactly one path. Depth 6 means at most six questions before it lands on a leaf, regardless of how wide the tree is.</div>
+</div>
+<div class="q">
+<p class="q-text"><span class="qn">Q2.</span> Why are decision trees popular in regulated industries such as banking and insurance?</p>
+<div class="opts">
+<button class="opt">They are always more accurate than any other model</button>
+<button class="opt">They need no training data</button>
+<button class="opt" data-correct="">Every prediction comes with a readable path that explains the decision</button>
+<button class="opt">They never overfit</button>
+</div>
+<div class="fb"><b>Explainability.</b> Trees are not always the most accurate option, and they overfit badly if left alone. What they offer is a decision path you can print and defend.</div>
+</div>
+</div></div></section>
+<!-- ========================= 4. THE DATASET ========================= -->
+<section class="band tint slide" data-a="sun" data-slide-index="7">
+<div class="inner">
+<div class="eyebrow">Our running example</div>
+<h2 class="sec">Eight loan applicants</h2>
+<p class="lede">Every calculation from here on uses this one small table. Eight rows is deliberately tiny — small enough that you can verify every number with a pen, big enough to show real behaviour.</p>
+<div class="grid2 lean stack">
+<div>
+<div class="tbl-wrap">
+<table class="data">
+<thead><tr><th>#</th><th>Income</th><th>Credit score</th><th>Approved?</th></tr></thead>
+<tbody>
+<tr><td>1</td><td>High</td><td>Good</td><td class="yes">Yes</td></tr>
+<tr><td>2</td><td>High</td><td>Good</td><td class="yes">Yes</td></tr>
+<tr><td>3</td><td>High</td><td>Bad</td><td class="no">No</td></tr>
+<tr><td>4</td><td>Low</td><td>Good</td><td class="yes">Yes</td></tr>
+<tr><td>5</td><td>Low</td><td>Bad</td><td class="no">No</td></tr>
+<tr><td>6</td><td>Low</td><td>Bad</td><td class="no">No</td></tr>
+<tr><td>7</td><td>High</td><td>Bad</td><td class="no">No</td></tr>
+<tr><td>8</td><td>Low</td><td>Good</td><td class="yes">Yes</td></tr>
+</tbody>
+</table>
+</div>
+</div>
+<div>
+<div class="card">
+<h4>Reading the table</h4>
+<p><strong>Features</strong> (the questions we are allowed to ask): Income, which is High or Low, and Credit score, which is Good or Bad.</p>
+<p><strong>Target</strong> (what we want to predict): Approved, which is Yes or No.</p>
+<p style="margin-bottom:0">Eight rows, four Yes and four No. A perfectly balanced starting point, which makes the arithmetic later very clean.</p>
+</div>
+<div class="stat-row" style="margin-bottom:0">
+<div class="stat"><div class="v">8</div><div class="l">rows</div></div>
+<div class="stat"><div class="v">2</div><div class="l">features</div></div>
+<div class="stat"><div class="v">4 / 4</div><div class="l">Yes / No</div></div>
+</div>
+</div>
+</div>
+<div class="activity">
+<h4>Look before we calculate</h4>
+<p>Spend thirty seconds with the table and answer this by eye, before any mathematics: <strong>if you were only allowed to ask one question about a new applicant, would you ask about Income or about Credit score?</strong></p>
+<p style="margin-bottom:0">Cover the Income column with your hand and read Credit score against Approved. Then do the reverse. The pattern should jump out. Hold on to your answer — the maths in the next few sections either confirms your instinct or corrects it.</p>
+</div>
+</div>
+</section>
+<!-- ========================= 5. CHOOSING THE FIRST QUESTION ========================= -->
+<section class="band plain slide" data-a="coral" data-slide-index="8">
+<div class="inner">
+<div class="eyebrow">The central problem</div>
+<h2 class="sec">Which question should the root ask?</h2>
+<p class="lede">This is the whole algorithm in one sentence. A tree can only ask one question at the root, so it must decide: <strong>Income, or Credit score?</strong> Get this right and the rest of the tree is easy. Get it wrong and you waste a level.</p>
+<div class="widget">
+<div class="widget-head"><span class="badge">TRY IT</span><h4>Compare the two candidate splits</h4></div>
+<div class="btn-row">
+<button class="btn on" id="splitIncomeBtn" onclick="showSplit('income')">Split on Income</button>
+<button class="btn" id="splitCreditBtn" onclick="showSplit('credit')">Split on Credit score</button>
+</div>
+<div class="branches" id="splitBranches"></div>
+<div class="verdict" id="splitVerdict"></div>
+</div>
+<div class="grid2 stack">
+<div>
+<p>Splitting on <strong>Income</strong> gives you two groups of four, and each one is still 2 Yes and 2 No. You have done work and learned nothing. Both children are as mixed as the parent was. If you stopped here you would be guessing.</p>
+<p>Splitting on <strong>Credit score</strong> gives you two groups of four as well, but one is entirely Yes and the other is entirely No. Both children are <em>pure</em>. One question and the problem is completely solved.</p>
+<p style="margin-bottom:0">So the tree picks Credit score for the root. Now we need to make "the groups look cleaner" into a number a computer can compare, because on a real dataset with 200 features you cannot eyeball this.</p>
+</div>
+<div>
+<div class="analogy">
+<h4>Sorting laundry</h4>
+<p>You tip a basket of mixed washing onto the bed. You could sort by "does it belong to me or someone else?" and end up with two piles that are still a jumble of shirts, socks and towels. Or you could sort by colour, and end up with a whites pile and a darks pile — two groups where everything inside belongs together.</p>
+<p style="margin-bottom:0">Both took one pass. Only one of them actually reduced the mess. A decision tree is looking for the colour sort, every single time.</p>
+</div>
+</div>
+</div>
+<div class="note">
+<span class="tagline">The rule, stated plainly</span>
+<p style="margin-bottom:0">At every node, the algorithm tries <strong>every feature</strong> and <strong>every possible cut-off within that feature</strong>, scores each candidate split by how much mess it removes, and keeps the winner. Then it does the same thing again on each child. That is it. That is the whole training algorithm, and the next three sections are just about how "mess" gets scored.</p>
+</div>
+
+</div>
+</section><section class="band plain quiz-slide slide" data-a="coral" data-slide-index="9"><div class="inner"><h2 class="sec quiz-slide-topic">Which question should the root ask?</h2><div class="quiz" data-quiz="">
+<div class="quiz-head"><h4>Quiz — choosing a split</h4><span class="score" data-score="">0 / 3</span></div>
+<div class="q">
+<p class="q-text"><span class="qn">Q1.</span> Splitting our 8 applicants on Income gives two groups, each 2 Yes and 2 No. What has the tree gained?</p>
+<div class="opts">
+<button class="opt">A great deal — the groups are now half the size</button>
+<button class="opt" data-correct="">Nothing useful — both children are exactly as mixed as the parent</button>
+<button class="opt">It has made the data worse</button>
+<button class="opt">It has guaranteed the tree will overfit</button>
+</div>
+<div class="fb"><b>Nothing useful.</b> Smaller groups are not the goal — <em>less mixed</em> groups are. A split that leaves both children at the same 50/50 mixture has removed zero uncertainty.</div>
+</div>
+<div class="q">
+<p class="q-text"><span class="qn">Q2.</span> When choosing a split, what does the algorithm actually search through?</p>
+<div class="opts">
+<button class="opt">Only the first feature in the dataset</button>
+<button class="opt">A random feature each time</button>
+<button class="opt" data-correct="">Every feature, and every possible cut-off point within each feature</button>
+<button class="opt">The feature with the largest average value</button>
+</div>
+<div class="fb"><b>An exhaustive search at each node.</b> Every feature, every candidate threshold, scored and compared. Random feature selection does exist, but it is a Random Forest trick, not standard tree behaviour.</div>
+</div>
+<div class="q">
+<p class="q-text"><span class="qn">Q3.</span> Two groups are described below. Which one is "purer"?</p>
+<div class="opts">
+<button class="opt">Group A: 5 Yes, 5 No</button>
+<button class="opt" data-correct="">Group B: 9 Yes, 1 No</button>
+<button class="opt">They are equally pure — both have 10 rows</button>
+<button class="opt">Impossible to say without knowing the features</button>
+</div>
+<div class="fb"><b>Group B.</b> Purity is about how lopsided the label mixture is, not how many rows there are. A 9-to-1 group is nearly settled; a 5-to-5 group is a coin flip.</div>
+</div>
+</div></div></section>
+<!-- ========================= 6. IMPURITY ========================= -->
+<section class="band deep slide" data-a="mint" data-slide-index="10">
+<div class="inner">
+<div class="eyebrow">The key concept</div>
+<h2 class="sec">Impurity: putting a number on "mixed up"</h2>
+<p class="lede" style="color:#c9d1f5">Impurity measures how jumbled the labels inside a group are. <strong style="color:#fff">Zero means perfectly pure</strong> — everything in the group shares one label. The higher the number, the more of a mess you are looking at.</p>
+<div class="grid2 stack">
+<div>
+<div class="card">
+<h4>The intuition first</h4>
+<p>Picture a jar of marbles. A jar with 20 green marbles is pure — reach in blindfolded and you know exactly what you will pull out. A jar with 10 green and 10 red is maximally impure — you have no idea. A jar with 19 green and 1 red is nearly pure; you would bet on green and usually win.</p>
+<p style="margin-bottom:0">Impurity is just a formula that turns that feeling of "how confidently could I guess?" into a number between 0 and something.</p>
+</div>
+</div>
+<div>
+<div class="card">
+<h4>The two measures you will meet</h4>
+<p><strong>Gini impurity</strong> — the probability of labelling a randomly drawn item wrongly, if you guessed using the group's own proportions. Fast, and scikit-learn's default.</p>
+<p style="margin-bottom:0"><strong>Entropy</strong> — borrowed from information theory. It measures, in bits, how much genuine surprise is left in the group. Slightly slower to compute because of the logarithm.</p>
+</div>
+</div>
+</div>
+<div class="widget" style="background:rgba(255,255,255,.07);border-color:rgba(255,255,255,.16);color:#eef1ff">
+<div class="widget-head"><span class="badge">TRY IT</span><h4 style="color:#fff">The impurity playground</h4></div>
+<p style="color:#c9d1f5;margin-bottom:.6rem">Drag the slider to change the mixture in a group of 10 applicants, and watch both measures respond.</p>
+<div class="slider-row">
+<label style="color:#eef1ff">Approved (Yes):</label>
+<input aria-label="Number of Yes labels" id="impSlider" max="10" min="0" step="1" type="range" value="5"/>
+<span class="big-val" id="impVal" style="color:#3ad39b">5</span>
+</div>
+<div class="dots" id="impDots" style="margin-bottom:1.1rem"></div>
+<div class="meter-row"><span class="lbl" style="color:#eef1ff">Gini</span><div class="meter" style="flex:1;background:rgba(255,255,255,.16)"><div class="meter-fill" id="impGiniBar" style="background:#3ad39b"></div></div><span class="num" id="impGiniNum" style="color:#eef1ff">0.500</span></div>
+<div class="meter-row"><span class="lbl" style="color:#eef1ff">Entropy</span><div class="meter" style="flex:1;background:rgba(255,255,255,.16)"><div class="meter-fill" id="impEntBar" style="background:#ffb545"></div></div><span class="num" id="impEntNum" style="color:#eef1ff">1.000</span></div>
+<p class="hint" id="impNote" style="color:#c9d1f5"></p>
+</div>
+<div class="grid3 stack">
+<div class="card"><h4>All one label</h4><p style="margin-bottom:0">10 Yes, 0 No. Gini <strong>0.000</strong>, Entropy <strong>0.000</strong>. Nothing left to learn — this becomes a leaf.</p></div>
+<div class="card"><h4>Lopsided</h4><p style="margin-bottom:0">9 Yes, 1 No. Gini <strong>0.180</strong>, Entropy <strong>0.469</strong>. Nearly settled; one more split might not be worth it.</p></div>
+<div class="card"><h4>Coin flip</h4><p style="margin-bottom:0">5 Yes, 5 No. Gini <strong>0.500</strong>, Entropy <strong>1.000</strong>. Maximum confusion for two classes.</p></div>
+</div>
+<div class="note" style="border-left-color:#ffb545;background:rgba(255,181,69,.14)">
+<span class="tagline" style="color:#ffd489">Notice the ceilings</span>
+<p style="margin-bottom:0;color:#eef1ff">For two classes, Gini tops out at 0.5 while Entropy tops out at 1.0. They live on different scales, so <strong>never compare a Gini value against an Entropy value</strong>. Compare Gini to Gini, Entropy to Entropy. Both agree on which split is best — they just disagree on the units.</p>
+</div>
+
+</div>
+</section><section class="band deep quiz-slide slide" data-a="mint" data-slide-index="11"><div class="inner"><h2 class="sec quiz-slide-topic">Impurity: putting a number on "mixed up"</h2><div class="quiz" data-quiz="">
+<div class="quiz-head"><h4 style="color:#fff">Quiz — impurity</h4><span class="score" data-score="" style="background:rgba(255,255,255,.16);color:#fff">0 / 3</span></div>
+<div class="q">
+<p class="q-text" style="color:#fff"><span class="qn" style="color:#ffd489">Q1.</span> A node has an impurity of exactly 0. What does that tell you?</p>
+<div class="opts">
+<button class="opt">The node is empty</button>
+<button class="opt" data-correct="">Every row in the node shares the same label</button>
+<button class="opt">The node has a 50/50 class split</button>
+<button class="opt">The tree has overfitted</button>
+</div>
+<div class="fb"><b>The node is pure.</b> One label, no mixture, no uncertainty. Splitting it further cannot improve anything, so the tree turns it into a leaf.</div>
+</div>
+<div class="q">
+<p class="q-text" style="color:#fff"><span class="qn" style="color:#ffd489">Q2.</span> For a two-class problem, what is the largest possible Gini impurity?</p>
+<div class="opts">
+<button class="opt">0.25</button>
+<button class="opt" data-correct="">0.5</button>
+<button class="opt">1.0</button>
+<button class="opt">There is no upper limit</button>
+</div>
+<div class="fb"><b>0.5, reached at a 50/50 split.</b> Entropy reaches 1.0 at that same point, which is exactly why the two scales must never be compared to each other directly.</div>
+</div>
+<div class="q">
+<p class="q-text" style="color:#fff"><span class="qn" style="color:#ffd489">Q3.</span> Which group has the higher impurity?</p>
+<div class="opts">
+<button class="opt">30 Yes, 2 No</button>
+<button class="opt" data-correct="">18 Yes, 14 No</button>
+<button class="opt">32 Yes, 0 No</button>
+<button class="opt">All three are identical, they have 32 rows each</button>
+</div>
+<div class="fb"><b>18 / 14 is the messiest.</b> It sits closest to an even split, so it is hardest to guess. Group size does not enter into the impurity calculation at all — only the proportions do.</div>
+</div>
+</div></div></section>
+<!-- ========================= 7. GINI BY HAND ========================= -->
+<section class="band alt slide" data-a="sky" data-slide-index="12">
+<div class="inner">
+<div class="eyebrow">The maths, part one</div>
+<h2 class="sec">Gini impurity, worked out by hand</h2>
+<p class="lede">Gini answers one question: <strong>if I picked a random row from this group and guessed its label using the group's own proportions, how often would I be wrong?</strong></p>
+<div class="formula">
+<div class="eq">Gini = 1 − Σ (p<sub>i</sub>)²</div>
+<div class="why">where p<sub>i</sub> is the fraction of the group belonging to class i</div>
+</div>
+<p>Square each class fraction, add them up, subtract from one. That is the entire calculation. Let us run it on our loan data.</p>
+<h3 class="sub">Step 1 — impurity before any split</h3>
+<div class="grid2 lean">
+<div>
+<div class="card">
+<p style="margin-bottom:.6rem">All 8 applicants: <span class="chip y">4 Yes</span> <span class="chip n">4 No</span></p>
+<div class="calc">
+            p(Yes) = 4/8 = 0.5<br/>
+            p(No)  = 4/8 = 0.5<br/>
+            Gini = 1 − (0.5² + 0.5²)<br/>
+            Gini = 1 − (0.25 + 0.25)<br/>
+            Gini = <span class="r">0.500</span>
+</div>
+</div>
+</div>
+<div>
+<p>0.500 is the worst possible score for a two-class problem. Our starting point is a perfect coin flip, which is honest — with no questions asked, we genuinely have no idea whether a new applicant gets approved.</p>
+<p style="margin-bottom:0">This number is our baseline. Every candidate split will now be judged on how far below 0.500 it can drag the impurity.</p>
+</div>
+</div>
+<h3 class="sub">Step 2 — score the split on Income</h3>
+<div class="grid2">
+<div class="card">
+<h4>Income = High → rows 1, 2, 3, 7</h4>
+<p style="margin-bottom:.6rem"><span class="chip y">2 Yes</span> <span class="chip n">2 No</span></p>
+<div class="calc">Gini = 1 − (0.5² + 0.5²) = <span class="r">0.500</span></div>
+</div>
+<div class="card">
+<h4>Income = Low → rows 4, 5, 6, 8</h4>
+<p style="margin-bottom:.6rem"><span class="chip y">2 Yes</span> <span class="chip n">2 No</span></p>
+<div class="calc">Gini = 1 − (0.5² + 0.5²) = <span class="r">0.500</span></div>
+</div>
+</div>
+<p class="stack-sm">Now combine the children into one score. Bigger groups matter more, so we take a <strong>weighted average</strong> using each child's share of the rows:</p>
+<div class="formula">
+<div class="eq">Gini<sub>split</sub> = (4/8 × 0.500) + (4/8 × 0.500) = <strong>0.500</strong></div>
+<div class="why">Improvement over the baseline: 0.500 − 0.500 = 0.000. Absolutely nothing gained.</div>
+</div>
+<h3 class="sub">Step 3 — score the split on Credit score</h3>
+<div class="grid2">
+<div class="card">
+<h4>Credit = Good → rows 1, 2, 4, 8</h4>
+<p style="margin-bottom:.6rem"><span class="chip y">4 Yes</span> <span class="chip n">0 No</span></p>
+<div class="calc">Gini = 1 − (1.0² + 0²) = <span class="r">0.000</span></div>
+</div>
+<div class="card">
+<h4>Credit = Bad → rows 3, 5, 6, 7</h4>
+<p style="margin-bottom:.6rem"><span class="chip y">0 Yes</span> <span class="chip n">4 No</span></p>
+<div class="calc">Gini = 1 − (0² + 1.0²) = <span class="r">0.000</span></div>
+</div>
+</div>
+<div class="formula">
+<div class="eq">Gini<sub>split</sub> = (4/8 × 0.000) + (4/8 × 0.000) = <strong>0.000</strong></div>
+<div class="why">Improvement over the baseline: 0.500 − 0.000 = <strong>0.500</strong>. The mess is completely gone.</div>
+</div>
+<div class="note">
+<span class="tagline">The verdict</span>
+<p style="margin-bottom:0">Credit score wins by a mile, and it wins by an amount we can now defend with a number rather than a feeling. This drop in impurity has a name — <strong>Gini gain</strong>, or more generally <strong>impurity decrease</strong>. The tree always picks the split with the largest one.</p>
+</div>
+<div class="widget">
+<div class="widget-head"><span class="badge">STEP THROUGH</span><h4>Replay the whole calculation</h4></div>
+<p class="dim" style="margin-bottom:.7rem">Useful for talking through it slowly, one line at a time.</p>
+<div class="btn-row">
+<button class="btn ghost" onclick="stepCalc(1)">◀ Back</button>
+<button class="btn on" onclick="stepCalc(-1)">Next step ▶</button>
+<button class="btn" onclick="stepCalc(0)">↺ Reset</button>
+</div>
+<div id="calcSteps"></div>
+</div>
+<div class="activity">
+<h4>Work one out yourself</h4>
+<p>Here is a fresh eight-row table. Two features — the weather, and whether a friend is free — and one target: did you go out?</p>
+<div class="tbl-wrap" style="max-width:520px">
+<table class="data">
+<thead><tr><th>#</th><th>Weather</th><th>Friend free</th><th>Went out?</th></tr></thead>
+<tbody>
+<tr><td>1</td><td>Sunny</td><td>Yes</td><td class="yes">Go</td></tr>
+<tr><td>2</td><td>Sunny</td><td>Yes</td><td class="yes">Go</td></tr>
+<tr><td>3</td><td>Sunny</td><td>No</td><td class="yes">Go</td></tr>
+<tr><td>4</td><td>Sunny</td><td>No</td><td class="no">Stay</td></tr>
+<tr><td>5</td><td>Rainy</td><td>Yes</td><td class="yes">Go</td></tr>
+<tr><td>6</td><td>Rainy</td><td>No</td><td class="no">Stay</td></tr>
+<tr><td>7</td><td>Rainy</td><td>No</td><td class="no">Stay</td></tr>
+<tr><td>8</td><td>Rainy</td><td>Yes</td><td class="yes">Go</td></tr>
+</tbody>
+</table>
+</div>
+<p><strong>Compute three things:</strong> the Gini impurity of the full table, the weighted Gini if you split on Weather, and the weighted Gini if you split on Friend free. Then say which feature the root should use.</p>
+<button class="btn ghost" onclick="toggleReveal('actAns1',this)">Show worked answer</button>
+<div class="reveal-body" id="actAns1">
+<div class="card flat">
+<p style="margin-bottom:.6rem"><strong>Baseline.</strong> 5 Go, 3 Stay → Gini = 1 − ((5/8)² + (3/8)²) = 1 − (0.3906 + 0.1406) = <strong>0.469</strong></p>
+<p style="margin-bottom:.6rem"><strong>Split on Weather.</strong> Sunny (1–4) = 3 Go, 1 Stay → Gini 0.375. Rainy (5–8) = 2 Go, 2 Stay → Gini 0.500.<br/>Weighted = (4/8 × 0.375) + (4/8 × 0.500) = <strong>0.4375</strong>, a gain of only 0.031.</p>
+<p style="margin-bottom:.6rem"><strong>Split on Friend free.</strong> Yes (1, 2, 5, 8) = 4 Go, 0 Stay → Gini 0.000. No (3, 4, 6, 7) = 1 Go, 3 Stay → Gini 0.375.<br/>Weighted = (4/8 × 0.000) + (4/8 × 0.375) = <strong>0.1875</strong>, a gain of 0.281.</p>
+<p style="margin-bottom:0"><strong>Root = Friend free</strong>, and it is not close. Notice this split is not perfect — the "No" branch is still mixed at 1 Go and 3 Stay — so the tree would carry on and split that branch again using Weather. That is how depth 2 appears.</p>
+</div>
+</div>
+</div>
+
+</div>
+</section><section class="band alt quiz-slide slide" data-a="sky" data-slide-index="13"><div class="inner"><h2 class="sec quiz-slide-topic">Gini impurity, worked out by hand</h2><div class="quiz" data-quiz="">
+<div class="quiz-head"><h4>Quiz — Gini</h4><span class="score" data-score="">0 / 3</span></div>
+<div class="q">
+<p class="q-text"><span class="qn">Q1.</span> A node holds 6 Yes and 2 No. What is its Gini impurity?</p>
+<div class="opts">
+<button class="opt">0.500</button>
+<button class="opt" data-correct="">0.375</button>
+<button class="opt">0.250</button>
+<button class="opt">0.750</button>
+</div>
+<div class="fb"><b>0.375.</b> p(Yes) = 0.75 and p(No) = 0.25, so Gini = 1 − (0.5625 + 0.0625) = 0.375.</div>
+</div>
+<div class="q">
+<p class="q-text"><span class="qn">Q2.</span> Why is the child impurity a <em>weighted</em> average rather than a plain one?</p>
+<div class="opts">
+<button class="opt">To keep the result between 0 and 1</button>
+<button class="opt" data-correct="">Because a child holding most of the rows should influence the score more than a nearly empty one</button>
+<button class="opt">Because Gini values cannot be added directly</button>
+<button class="opt">It is only a convention, a plain average works equally well</button>
+</div>
+<div class="fb"><b>Group size matters.</b> A split producing a pure child of 1 row and a messy child of 99 has barely helped. Weighting by row count keeps the score honest about that.</div>
+</div>
+<div class="q">
+<p class="q-text"><span class="qn">Q3.</span> Baseline Gini is 0.48. Split A gives a weighted Gini of 0.30, split B gives 0.12. Which does the tree choose?</p>
+<div class="opts">
+<button class="opt">Split A, because 0.30 is closer to the baseline</button>
+<button class="opt" data-correct="">Split B, because it produces the larger drop in impurity</button>
+<button class="opt">Neither, both are above zero</button>
+<button class="opt">Whichever feature appears first in the dataset</button>
+</div>
+<div class="fb"><b>Split B.</b> Its gain is 0.48 − 0.12 = 0.36 against split A's 0.18. The tree is always hunting for the biggest impurity decrease it can find.</div>
+</div>
+</div></div></section>
+<!-- ========================= 8. ENTROPY ========================= -->
+<section class="band plain slide" data-a="grape" data-slide-index="14">
+<div class="inner">
+<div class="eyebrow">The maths, part two</div>
+<h2 class="sec">Entropy and information gain</h2>
+<p class="lede">Entropy measures the same mess as Gini but in a different currency: <strong>bits of surprise</strong>. It comes from information theory, and it asks how many yes/no questions you would need, on average, to pin down the label of a random row.</p>
+<div class="formula">
+<div class="eq">Entropy = − Σ p<sub>i</sub> · log<sub>2</sub>(p<sub>i</sub>)</div>
+<div class="why">and Information Gain = Entropy(parent) − weighted Entropy(children)</div>
+</div>
+<div class="grid2 lean stack">
+<div>
+<h3 class="sub" style="margin-top:0">The same three steps</h3>
+<div class="card">
+<h4>Before splitting</h4>
+<div class="calc">
+            4 Yes, 4 No → p = 0.5, 0.5<br/>
+            E = −(0.5 · log₂0.5) − (0.5 · log₂0.5)<br/>
+            E = −(0.5 × −1) − (0.5 × −1)<br/>
+            E = <span class="r">1.000 bit</span>
+</div>
+</div>
+<div class="card">
+<h4>After splitting on Credit score</h4>
+<div class="calc">
+            Good branch: 4 Yes, 0 No → E = <span class="r">0.000</span><br/>
+            Bad branch:  0 Yes, 4 No → E = <span class="r">0.000</span><br/>
+            Weighted = (0.5 × 0) + (0.5 × 0) = <span class="r">0.000</span><br/>
+<strong>Information Gain = 1.000 − 0.000 = 1.000 bit</strong>
+</div>
+</div>
+<div class="card">
+<h4>After splitting on Income</h4>
+<div class="calc">
+            Both branches: 2 Yes, 2 No → E = <span class="r">1.000</span> each<br/>
+            Weighted = 1.000<br/>
+<strong>Information Gain = 1.000 − 1.000 = 0.000 bits</strong>
+</div>
+</div>
+</div>
+<div>
+<div class="analogy">
+<h4>Guessing a coin versus guessing a loaded die</h4>
+<p>A fair coin carries exactly 1 bit of uncertainty — one yes/no question ("heads?") settles it. A coin that lands heads 99% of the time carries almost no uncertainty; you would rarely need to ask.</p>
+<p style="margin-bottom:0">Entropy measures that. One bit of information gain means the split has removed a whole coin flip's worth of doubt from the problem. That is why entropy is sometimes described as the amount of <em>surprise</em> left in a group.</p>
+</div>
+<div class="note">
+<span class="tagline">Handy landmark values</span>
+<p style="margin-bottom:0">50/50 → <strong>1.000</strong> bit. 75/25 → <strong>0.811</strong>. 90/10 → <strong>0.469</strong>. 100/0 → <strong>0.000</strong>. Notice how slowly it falls at first: going from a 50/50 to a 75/25 mixture only removes about a fifth of the uncertainty.</p>
+</div>
+<div class="example">
+<span class="tagline">Where the name ID3 comes from</span>
+<p style="margin-bottom:0">The original decision tree algorithms — ID3 and its successor C4.5, built by Ross Quinlan in the 1980s — used information gain exactly as written above. Modern scikit-learn uses CART, which defaults to Gini but will happily use entropy if you pass <code>criterion="entropy"</code>.</p>
+</div>
+</div>
+</div>
+<div class="activity">
+<h4>Compute one by hand</h4>
+<p>A node contains <strong>3 Yes and 1 No</strong>. Work out its entropy. You will need log₂(0.75) ≈ −0.415 and log₂(0.25) = −2.</p>
+<button class="btn ghost" onclick="toggleReveal('actAns2',this)">Show worked answer</button>
+<div class="reveal-body" id="actAns2">
+<div class="card flat">
+<div class="calc">
+            E = −(0.75 × −0.415) − (0.25 × −2)<br/>
+            E = 0.311 + 0.500<br/>
+            E = <span class="r">0.811 bits</span>
+</div>
+<p style="margin-top:.8rem;margin-bottom:0">For comparison, the Gini of that same node is 1 − (0.5625 + 0.0625) = 0.375. Different numbers, same message: this group leans strongly towards Yes but is not settled yet.</p>
+</div>
+</div>
+</div>
+
+</div>
+</section><section class="band plain quiz-slide slide" data-a="grape" data-slide-index="15"><div class="inner"><h2 class="sec quiz-slide-topic">Entropy and information gain</h2><div class="quiz" data-quiz="">
+<div class="quiz-head"><h4>Quiz — entropy</h4><span class="score" data-score="">0 / 3</span></div>
+<div class="q">
+<p class="q-text"><span class="qn">Q1.</span> What is the entropy of a node containing 10 Yes and 0 No?</p>
+<div class="opts">
+<button class="opt" data-correct="">0 bits</button>
+<button class="opt">0.5 bits</button>
+<button class="opt">1 bit</button>
+<button class="opt">10 bits</button>
+</div>
+<div class="fb"><b>Zero.</b> There is no surprise left. You already know the answer before you look, so no questions are needed to determine the label.</div>
+</div>
+<div class="q">
+<p class="q-text"><span class="qn">Q2.</span> Information gain is defined as which of these?</p>
+<div class="opts">
+<button class="opt">The entropy of the largest child branch</button>
+<button class="opt">The sum of the entropies of both children</button>
+<button class="opt" data-correct="">Parent entropy minus the weighted entropy of the children</button>
+<button class="opt">The number of rows removed by the split</button>
+</div>
+<div class="fb"><b>It is a before-minus-after measurement.</b> How much uncertainty existed before the question, less how much survives it. Bigger gain means a more useful question.</div>
+</div>
+<div class="q">
+<p class="q-text"><span class="qn">Q3.</span> A split produces an information gain of 0.00. What does that mean?</p>
+<div class="opts">
+<button class="opt">The children are perfectly pure</button>
+<button class="opt" data-correct="">The split told us nothing — the children are as uncertain as the parent was</button>
+<button class="opt">The data contains an error</button>
+<button class="opt">The feature must be numeric</button>
+</div>
+<div class="fb"><b>A wasted question.</b> This is exactly what happened with Income on our loan data: two smaller groups, the same 50/50 mixture in each, and no progress made.</div>
+</div>
+</div></div></section>
+<!-- ========================= 9. GINI vs ENTROPY ========================= -->
+<section class="band tint slide" data-a="teal" data-slide-index="16">
+<div class="inner">
+<div class="eyebrow">A question everyone asks</div>
+<h2 class="sec">Gini or entropy — does the choice matter?</h2>
+<div class="grid2 stack" style="margin-top:1.4rem">
+<div>
+<div class="card">
+<h4>The short answer</h4>
+<p>Almost never. Studies comparing the two on real datasets find they disagree on the chosen split in roughly 2% of cases, and when they do disagree the resulting accuracy difference is usually negligible.</p>
+<p style="margin-bottom:0">Both are zero at purity, both peak at an even mixture, and both fall as a group becomes lopsided. They are two different curves telling the same story.</p>
+</div>
+<div class="card">
+<h4>The practical answer</h4>
+<p style="margin-bottom:0">Use Gini. It is the default, it avoids computing logarithms, and it is therefore a little faster on large datasets. Reach for entropy when you are teaching information theory, replicating an ID3 or C4.5 result, or a paper you are reproducing specifies it.</p>
+</div>
+<div class="note">
+<span class="tagline">When to reach for which</span>
+<p style="margin-bottom:.5rem"><strong>Use Gini when —</strong> you just want a working classifier, you are on a large dataset where training speed matters, or you have no specific reason to prefer anything else. This covers the large majority of real projects.</p>
+<p style="margin-bottom:0"><strong>Use entropy when —</strong> you are explicitly working with information gain (ID3/C4.5 style trees), teaching or learning the information-theoretic view, comparing against a paper or textbook that specifies it, or you want slightly more sensitivity to splits on already-lopsided nodes.</p>
+</div>
+</div>
+<div>
+<div class="tbl-wrap" style="margin-top:0">
+<table class="data">
+<thead><tr><th>Mixture</th><th>Gini</th><th>Entropy</th></tr></thead>
+<tbody>
+<tr><td>100 / 0</td><td>0.000</td><td>0.000</td></tr>
+<tr><td>90 / 10</td><td>0.180</td><td>0.469</td></tr>
+<tr><td>75 / 25</td><td>0.375</td><td>0.811</td></tr>
+<tr><td>60 / 40</td><td>0.480</td><td>0.971</td></tr>
+<tr><td>50 / 50</td><td>0.500</td><td>1.000</td></tr>
+</tbody>
+</table>
+</div>
+<div class="note">
+<span class="tagline">The one visible difference</span>
+<p style="margin-bottom:0">Entropy's curve is steeper near the edges. At a 90/10 mixture entropy still reads 0.469 out of 1.0, while Gini reads only 0.180 out of 0.5. Entropy therefore stays slightly hungrier about splitting already-lopsided nodes — a small effect, and one that pruning settles anyway.</p>
+</div>
+</div>
+</div>
+
+<div class="widget stack">
+<div class="widget-head"><span class="badge">TRY IT</span><h4>Both curves, side by side</h4></div>
+<p class="dim" style="margin-bottom:.6rem">Drag the slider to change the mixture and watch both formulas move at once. Gini reads against its own 0&ndash;0.5 axis; entropy against 0&ndash;1.</p>
+<svg viewBox="0 0 460 230" width="100%" id="gieChart" aria-label="Gini and entropy curves as a function of mixture"></svg>
+<div class="slider-row">
+<label>Mixture (p):</label>
+<input type="range" id="gieSlider" min="0" max="100" value="50" step="1" aria-label="Probability of class one, percent">
+<span class="big-val" id="gieVal">0.50</span>
+</div>
+<div class="stat-row" style="margin:.9rem 0 0 0">
+<div class="stat"><div class="v" id="gieGiniVal" style="color:var(--sky)">0.500</div><div class="l">Gini</div></div>
+<div class="stat"><div class="v" id="gieEntVal" style="color:var(--coral)">1.000</div><div class="l">Entropy</div></div>
+</div>
+</div>
+
+</div>
+</section><section class="band tint quiz-slide slide" data-a="teal" data-slide-index="17"><div class="inner"><h2 class="sec quiz-slide-topic">Gini or entropy — does the choice matter?</h2><div class="quiz" data-quiz="">
+<div class="quiz-head"><h4>Quiz — comparing the two</h4><span class="score" data-score="">0 / 2</span></div>
+<div class="q">
+<p class="q-text"><span class="qn">Q1.</span> A colleague reports "my node has impurity 0.7, so entropy must be worse than Gini here". What is wrong with that?</p>
+<div class="opts">
+<button class="opt">Nothing, the reasoning is fine</button>
+<button class="opt" data-correct="">The two measures use different scales, so their values cannot be compared against each other</button>
+<button class="opt">Impurity can never exceed 0.5 under any measure</button>
+<button class="opt">Entropy is always the larger of the two, so it is always worse</button>
+</div>
+<div class="fb"><b>Different units entirely.</b> Two-class Gini maxes out at 0.5 and entropy at 1.0. A reading of 0.7 is impossible for Gini and merely middling for entropy. Always compare like with like.</div>
+</div>
+<div class="q">
+<p class="q-text"><span class="qn">Q2.</span> Which is scikit-learn's default criterion for <code>DecisionTreeClassifier</code>?</p>
+<div class="opts">
+<button class="opt" data-correct="">gini</button>
+<button class="opt">entropy</button>
+<button class="opt">log_loss</button>
+<button class="opt">mse</button>
+</div>
+<div class="fb"><b>Gini, because it is cheaper to compute.</b> <code>entropy</code> and <code>log_loss</code> are both available for classification; <code>squared_error</code> is the default over on the regressor side.</div>
+</div>
+</div></div></section>
+<!-- ========================= 10. NUMERIC FEATURES ========================= -->
+<section class="band alt slide" data-a="sun" data-slide-index="18">
+<div class="inner">
+<div class="eyebrow">A detail that trips people up</div>
+<h2 class="sec">What happens with numbers instead of categories?</h2>
+<p class="lede">Our loan table used tidy categories — High or Low, Good or Bad. Real data is full of numbers: age 34, income ₹58,200, 17 previous transactions. A number has <strong>infinitely many possible cut-off points</strong>, so how does the tree pick one?</p>
+<div class="grid2 lean stack">
+<div>
+<p>The answer is neater than you might expect. The tree does not consider infinitely many thresholds. It only needs to consider the points where the label could possibly change.</p>
+<ol class="plain">
+<li><strong>Sort</strong> the rows by that feature's value.</li>
+<li><strong>Take the midpoint</strong> between each pair of neighbouring values. Eight distinct values give at most seven candidate thresholds.</li>
+<li><strong>Score every candidate</strong> with Gini or entropy, exactly as before.</li>
+<li><strong>Keep the winner</strong>, and store it as a condition like <code>income &lt;= 31.5</code>.</li>
+</ol>
+<p style="margin-bottom:0">Any threshold between two neighbouring values produces the identical split, so testing the midpoint tests them all. That is what makes an infinite search finite.</p>
+</div>
+<div>
+<div class="widget" style="margin-top:0">
+<div class="widget-head"><span class="badge">TRY IT</span><h4>Find the best cut-off</h4></div>
+<p class="dim" style="margin-bottom:.5rem">Eight applicants, income in thousands. Green dots were approved, red were not. Slide the cut-off and watch the weighted Gini update.</p>
+<svg aria-label="Income number line" id="numLine" viewBox="0 0 400 90" width="100%"></svg>
+<div class="slider-row">
+<label>Cut-off:</label>
+<input aria-label="Threshold index" id="thrSlider" max="6" min="0" step="1" type="range" value="3"/>
+<span class="big-val" id="thrVal">46.5</span>
+</div>
+<div class="branches">
+<div class="branch"><h5 id="thrLeftLbl">Left</h5><div class="dots" id="thrLeftDots"></div><div class="sm" id="thrLeftSm"></div></div>
+<div class="branch"><h5 id="thrRightLbl">Right</h5><div class="dots" id="thrRightDots"></div><div class="sm" id="thrRightSm"></div></div>
+</div>
+<div class="verdict" id="thrVerdict"></div>
+</div>
+</div>
+</div>
+<div class="grid2 stack">
+<div class="note">
+<span class="tagline">Three consequences worth remembering</span>
+<p style="margin-bottom:.5rem"><strong>No scaling needed.</strong> A tree only ever asks "is this value above or below that one?" Multiplying every income by 1,000 changes the threshold and nothing else. This is why trees skip the <code>StandardScaler</code> step that most other models demand.</p>
+<p style="margin-bottom:.5rem"><strong>Outliers barely matter.</strong> One applicant earning ₹90 lakh is just "the rightmost dot". It cannot drag a mean around, because no mean is ever computed.</p>
+<p style="margin-bottom:0"><strong>Monotone transforms are free.</strong> Take the log of a feature and the tree finds an equivalent split, because the ordering of the rows has not changed.</p>
+</div>
+<div class="analogy">
+<h4>Setting the pass mark</h4>
+<p>You are told to draw a single line through a sorted list of exam scores to separate students who passed the practical from those who failed. You would not test every real number between 0 and 100. You would slide the line to sit between adjacent scores and check which position separates them best.</p>
+<p style="margin-bottom:0">A decision tree does exactly this, for every numeric feature, at every node.</p>
+</div>
+</div>
+
+</div>
+</section><section class="band alt quiz-slide slide" data-a="sun" data-slide-index="19"><div class="inner"><h2 class="sec quiz-slide-topic">What happens with numbers instead of categories?</h2><div class="quiz" data-quiz="">
+<div class="quiz-head"><h4>Quiz — numeric splits</h4><span class="score" data-score="">0 / 3</span></div>
+<div class="q">
+<p class="q-text"><span class="qn">Q1.</span> A numeric feature has 12 distinct values in a node. How many candidate thresholds does the tree evaluate?</p>
+<div class="opts">
+<button class="opt">12</button>
+<button class="opt" data-correct="">11 — one midpoint between each neighbouring pair</button>
+<button class="opt">Infinitely many</button>
+<button class="opt">2, the minimum and the maximum</button>
+</div>
+<div class="fb"><b>Eleven midpoints.</b> Every threshold between the same two neighbouring values yields an identical split, so testing one representative point per gap covers the entire real line.</div>
+</div>
+<div class="q">
+<p class="q-text"><span class="qn">Q2.</span> Do you need to standardise or normalise features before fitting a decision tree?</p>
+<div class="opts">
+<button class="opt">Yes, always, or the splits will be wrong</button>
+<button class="opt" data-correct="">No — the tree only compares values within a single feature, so scale is irrelevant</button>
+<button class="opt">Only for entropy, not for Gini</button>
+<button class="opt">Only when the dataset has more than 1000 rows</button>
+</div>
+<div class="fb"><b>No scaling required.</b> Distance-based models like KNN and SVM care deeply about scale. Trees ask only "above or below this threshold?", which is unaffected by units.</div>
+</div>
+<div class="q">
+<p class="q-text"><span class="qn">Q3.</span> One row in your data has an income of ₹5 crore while every other row is under ₹15 lakh. What happens to the tree?</p>
+<div class="opts">
+<button class="opt">The tree is badly distorted, as the average is dragged upward</button>
+<button class="opt" data-correct="">Very little — the row is simply the largest value in the sort order</button>
+<button class="opt">The tree refuses to fit</button>
+<button class="opt">All thresholds are multiplied by that value</button>
+</div>
+<div class="fb"><b>Trees are naturally robust to outliers on the feature side.</b> Ordering is all that matters, and one extreme value changes the ordering of nothing else. Linear regression would not be so forgiving.</div>
+</div>
+</div></div></section>
+<!-- ========================= 11. THE FULL ALGORITHM ========================= -->
+<section class="band plain slide" data-a="mint" data-slide-index="20">
+<div class="inner">
+<div class="eyebrow">Putting it together</div>
+<h2 class="sec">How the whole tree gets built</h2>
+<p class="lede">We now have every piece. Growing a full tree is just the split-scoring routine from the last few sections, applied <strong>over and over on smaller and smaller groups</strong> until there is nothing left worth splitting.</p>
+<div class="grid2 lean stack">
+<div>
+<div class="widget" style="margin-top:0">
+<div class="widget-head"><span class="badge">STEP THROUGH</span><h4>The algorithm, one line at a time</h4></div>
+<div class="btn-row">
+<button class="btn on" onclick="growStep(-1)">Next ▶</button>
+<button class="btn" onclick="growStep(0)">↺ Reset</button>
+</div>
+<div id="growSteps"></div>
+</div>
+</div>
+<div>
+<div class="card">
+<h4>This is called recursive binary splitting</h4>
+<p><strong>Recursive</strong>, because the procedure calls itself on each child it creates. <strong>Binary</strong>, because scikit-learn always makes exactly two branches per node.</p>
+<p style="margin-bottom:0">It is also <strong>greedy</strong>: at each node it takes the best split available <em>right now</em>, never checking whether a slightly worse split today would open up a much better one two levels down. Finding the truly optimal tree is computationally infeasible, so greedy is what everybody uses.</p>
+</div>
+<div class="analogy">
+<h4>Greedy, as in driving without a map</h4>
+<p style="margin-bottom:0">At every junction you take the road that looks like it heads towards your destination. Usually fine. Occasionally you would have arrived far sooner by turning briefly away from your goal to reach a highway. A decision tree never takes that detour, and this is one root cause of the instability we discuss shortly.</p>
+</div>
+</div>
+</div>
+<h3 class="sub">When does it stop?</h3>
+<div class="grid3">
+<div class="card flat"><h4>Natural stops</h4><p style="margin-bottom:0">The node is pure, or every row in it has identical feature values so no split is even possible.</p></div>
+<div class="card flat"><h4>Rules you impose</h4><p style="margin-bottom:0">Maximum depth reached, too few rows to split, or a leaf would end up smaller than the minimum you allowed.</p></div>
+<div class="card flat"><h4>Nothing left to gain</h4><p style="margin-bottom:0">The best available split reduces impurity by less than your <code>min_impurity_decrease</code> threshold, so it is not worth taking.</p></div>
+</div>
+<div class="note">
+<span class="tagline">The dangerous default</span>
+<p style="margin-bottom:0">If you set none of those limits, scikit-learn keeps splitting until <strong>every single leaf is pure</strong>. On a real dataset that can mean hundreds of leaves holding one row each. Training accuracy hits 100%, which feels wonderful for about ten seconds, until you score it on data it has never seen. That is the subject of the next section.</p>
+</div>
+
+</div>
+</section><section class="band plain quiz-slide slide" data-a="mint" data-slide-index="21"><div class="inner"><h2 class="sec quiz-slide-topic">How the whole tree gets built</h2><div class="quiz" data-quiz="">
+<div class="quiz-head"><h4>Quiz — the algorithm</h4><span class="score" data-score="">0 / 3</span></div>
+<div class="q">
+<p class="q-text"><span class="qn">Q1.</span> What does "greedy" mean in the context of tree building?</p>
+<div class="opts">
+<button class="opt">The tree uses as much memory as it can</button>
+<button class="opt" data-correct="">It takes the best split available at each node without looking ahead to future levels</button>
+<button class="opt">It always chooses the feature with the most distinct values</button>
+<button class="opt">It keeps splitting until it runs out of data</button>
+</div>
+<div class="fb"><b>Locally optimal, globally uncertain.</b> Searching every possible tree is NP-hard, so all practical implementations settle for the best split at each step and accept that the finished tree may not be the best one possible.</div>
+</div>
+<div class="q">
+<p class="q-text"><span class="qn">Q2.</span> With no depth or size limits set, when does scikit-learn stop growing a classification tree?</p>
+<div class="opts">
+<button class="opt">At depth 10, its built-in safety limit</button>
+<button class="opt">After 100 splits</button>
+<button class="opt" data-correct="">When every leaf is pure or cannot be split any further</button>
+<button class="opt">When training accuracy passes 95%</button>
+</div>
+<div class="fb"><b>It grows all the way down.</b> <code>max_depth</code> defaults to <code>None</code>, which is precisely why an unconstrained tree is such a reliable overfitter.</div>
+</div>
+<div class="q">
+<p class="q-text"><span class="qn">Q3.</span> The procedure is described as "recursive" because —</p>
+<div class="opts">
+<button class="opt">It repeats the same code on the same data many times</button>
+<button class="opt" data-correct="">It applies the identical splitting procedure to each child group it produces</button>
+<button class="opt">It reverses direction when it reaches a leaf</button>
+<button class="opt">It requires a while loop to implement</button>
+</div>
+<div class="fb"><b>Same procedure, smaller data.</b> Find best split, create two children, then run find-best-split on each child. The recursion unwinds when a stopping condition fires.</div>
+</div>
+</div></div></section>
+<!-- ========================= 12. REGRESSION TREES ========================= -->
+<section class="band alt slide" data-a="teal" data-slide-index="22">
+<div class="inner">
+<div class="eyebrow">The other half of the family</div>
+<h2 class="sec">Trees that predict numbers</h2>
+<p class="lede">Everything so far predicted a category. Swap two components and the same machine predicts a continuous number instead — house prices, delivery times, tomorrow's demand.</p>
+<div class="grid2 stack">
+<div>
+<div class="card">
+<h4>What changes</h4>
+<p><strong>The impurity measure.</strong> Gini and entropy are meaningless for numbers, so the tree measures <em>variance</em> instead — usually mean squared error. A group of house prices all clustered near ₹80 lakh has low variance; a group scattered from ₹20 lakh to ₹4 crore has high variance.</p>
+<p style="margin-bottom:0"><strong>What the leaf stores.</strong> A classification leaf stores the majority class. A regression leaf stores the <em>average</em> of the target values that landed there.</p>
+</div>
+</div>
+<div>
+<div class="card">
+<h4>What stays exactly the same</h4>
+<p>The greedy search. The exhaustive scan over features and thresholds. The recursion. The stopping rules. The overfitting problem, and the pruning that fixes it.</p>
+<p style="margin-bottom:0">In scikit-learn you literally change one class name: <code>DecisionTreeClassifier</code> becomes <code>DecisionTreeRegressor</code>, and <code>criterion</code> defaults to <code>"squared_error"</code>.</p>
+</div>
+</div>
+</div>
+<div class="widget">
+<div class="widget-head"><span class="badge">TRY IT</span><h4>Split six houses to reduce variance</h4></div>
+<p class="dim" style="margin-bottom:.6rem">Six houses with their size in square feet and their price in lakhs. Choose where to cut and watch total squared error fall.</p>
+<div class="tbl-wrap" style="max-width:460px;margin-top:.4rem">
+<table class="data">
+<thead><tr><th>Size (sq ft)</th><th>800</th><th>950</th><th>1100</th><th>1600</th><th>1750</th><th>1900</th></tr></thead>
+<tbody><tr><td><strong>Price (₹L)</strong></td><td>40</td><td>46</td><td>52</td><td>88</td><td>94</td><td>100</td></tr></tbody>
+</table>
+</div>
+<div class="slider-row">
+<label>Split at size ≤</label>
+<input aria-label="Regression split point" id="regSlider" max="4" min="0" step="1" type="range" value="2"/>
+<span class="big-val" id="regVal">1350</span>
+</div>
+<div class="branches">
+<div class="branch"><h5>Left leaf</h5><div class="sm" id="regLeft"></div></div>
+<div class="branch"><h5>Right leaf</h5><div class="sm" id="regRight"></div></div>
+</div>
+<div class="verdict" id="regVerdict"></div>
+</div>
+<div class="example">
+<span class="tagline">The shape of a regression tree's predictions</span>
+<p style="margin-bottom:0">A regression tree predicts a <strong>flat value per leaf</strong>, so its output looks like a staircase, not a smooth line. Feed it a perfectly straight relationship such as <em>y = 2x</em> and it will approximate it with steps. Add more depth and the steps get finer, but they never truly become a line. This is a genuine weakness — and the reason linear models still win on genuinely linear problems.</p>
+</div>
+
+</div>
+</section><section class="band alt quiz-slide slide" data-a="teal" data-slide-index="23"><div class="inner"><h2 class="sec quiz-slide-topic">Trees that predict numbers</h2><div class="quiz" data-quiz="">
+<div class="quiz-head"><h4>Quiz — regression trees</h4><span class="score" data-score="">0 / 3</span></div>
+<div class="q">
+<p class="q-text"><span class="qn">Q1.</span> What does a leaf in a regression tree store?</p>
+<div class="opts">
+<button class="opt">The majority class of its rows</button>
+<button class="opt" data-correct="">The mean of the target values of its rows</button>
+<button class="opt">The Gini impurity of its rows</button>
+<button class="opt">The threshold that created it</button>
+</div>
+<div class="fb"><b>The average.</b> Every new row landing on that leaf receives that same number as its prediction, which is why the output looks like a staircase.</div>
+</div>
+<div class="q">
+<p class="q-text"><span class="qn">Q2.</span> Which criterion replaces Gini when predicting a continuous value?</p>
+<div class="opts">
+<button class="opt">Entropy</button>
+<button class="opt">Log loss</button>
+<button class="opt" data-correct="">Variance, usually as mean squared error</button>
+<button class="opt">Accuracy</button>
+</div>
+<div class="fb"><b>Variance reduction.</b> The tree hunts for the split that leaves each child's values most tightly clustered around their own mean. <code>squared_error</code> is scikit-learn's default here.</div>
+</div>
+<div class="q">
+<p class="q-text"><span class="qn">Q3.</span> Why does a regression tree struggle with a perfectly straight relationship like y = 2x?</p>
+<div class="opts">
+<button class="opt">It cannot handle negative numbers</button>
+<button class="opt" data-correct="">It can only output one constant per leaf, so it approximates a line with steps</button>
+<button class="opt">Variance cannot be computed on linear data</button>
+<button class="opt">It always overfits linear data</button>
+</div>
+<div class="fb"><b>Constant leaves, staircase output.</b> Deeper trees give finer steps but never a true slope. On genuinely linear problems, linear regression will beat a tree with far less effort.</div>
+</div>
+</div></div></section>
+<!-- ========================= 13. OVERFITTING ========================= -->
+<section class="band deep slide" data-a="coral" data-slide-index="24">
+<div class="inner">
+<div class="eyebrow">The famous weakness</div>
+<h2 class="sec">Overfitting: when a tree memorises instead of learning</h2>
+<p class="lede" style="color:#c9d1f5">Left unsupervised, a decision tree will keep splitting until it has built <strong style="color:#fff">a personalised rule for every single training row</strong>. It scores 100% on the data it studied and falls apart on anything new.</p>
+<div class="grid2 lean stack">
+<div>
+<div class="card">
+<h4>Why trees are unusually prone to this</h4>
+<p>Most models have limited flexibility baked in. A linear regression can only ever draw a straight line, so there is a ceiling on how badly it can contort itself around noise.</p>
+<p style="margin-bottom:0">A tree has no such ceiling. Give it enough depth and it can carve the feature space into as many boxes as there are rows. It has the capacity to memorise your dataset exactly, and if you do not stop it, it will.</p>
+</div>
+<div class="analogy">
+<h4>The student who memorised the question papers</h4>
+<p>Two students prepare for an exam. One learns the concepts. The other memorises the last ten years of question papers, answer by answer.</p>
+<p style="margin-bottom:0">On a mock test drawn from those papers, the memoriser scores higher. Then the real exam arrives with reworded questions, and they collapse — while the first student, who scored lower on the mock, handles it fine. <strong>Training accuracy is the mock test. Test accuracy is the real exam.</strong></p>
+</div>
+</div>
+<div>
+<div class="widget" style="margin-top:0;background:rgba(255,255,255,.07);border-color:rgba(255,255,255,.16)">
+<div class="widget-head"><span class="badge">TRY IT</span><h4 style="color:#fff">Drag the depth, watch the gap open</h4></div>
+<div class="slider-row">
+<label style="color:#eef1ff">max_depth:</label>
+<input aria-label="Tree depth" id="depthSlider" max="12" min="1" step="1" type="range" value="3"/>
+<span class="big-val" id="depthVal" style="color:#ff7b8e">3</span>
+</div>
+<svg aria-label="Training and test accuracy against depth" id="depthChart" viewBox="0 0 420 210" width="100%"></svg>
+<div class="meter-row"><span class="lbl" style="color:#eef1ff">Training</span><div class="meter" style="flex:1;background:rgba(255,255,255,.16)"><div class="meter-fill" id="trainBar" style="background:#61a6ff"></div></div><span class="num" id="trainNum" style="color:#eef1ff">85%</span></div>
+<div class="meter-row"><span class="lbl" style="color:#eef1ff">Test</span><div class="meter" style="flex:1;background:rgba(255,255,255,.16)"><div class="meter-fill" id="testBar" style="background:#ff7b8e"></div></div><span class="num" id="testNum" style="color:#eef1ff">83%</span></div>
+<div class="verdict" id="depthVerdict" style="background:rgba(255,255,255,.1);color:#eef1ff"></div>
+</div>
+</div>
+</div>
+<div class="note" style="border-left-color:#ff7b8e;background:rgba(255,123,142,.14)">
+<span class="tagline" style="color:#ffb0bd">How to spot it in your own work</span>
+<p style="margin-bottom:0;color:#eef1ff">A large gap between training and test scores is the tell. 99% training and 71% test is not a good model with a small flaw — it is a memoriser. As a rough guide, a gap beyond about 5 to 10 percentage points deserves investigation. Also check the tree itself: leaves containing one or two rows each are a strong symptom.</p>
+</div>
+<div class="activity">
+<h4>Diagnose these three models</h4>
+<p>Three trees have been trained on the same data. Decide what is wrong with each, if anything, before revealing the answers.</p>
+<p style="margin-bottom:.5rem"><strong>Model A</strong> — training 100%, test 68%.<br/><strong>Model B</strong> — training 71%, test 69%.<br/><strong>Model C</strong> — training 91%, test 88%.</p>
+<button class="btn ghost" onclick="toggleReveal('actAns3',this)">Show diagnosis</button>
+<div class="reveal-body" id="actAns3">
+<div class="card">
+<p style="margin-bottom:.6rem"><strong>A is overfitting badly.</strong> A perfect training score with a 32-point gap means it memorised. Cut <code>max_depth</code>, raise <code>min_samples_leaf</code>, or prune.</p>
+<p style="margin-bottom:.6rem"><strong>B is underfitting.</strong> The scores agree with each other, which is healthy, but both are poor. The model is too simple to capture the pattern. Allow more depth, or the features may simply not carry enough signal.</p>
+<p style="margin-bottom:0"><strong>C is what you are aiming for.</strong> Strong performance, small gap. Ship it.</p>
+</div>
+</div>
+</div>
+
+</div>
+</section><section class="band deep quiz-slide slide" data-a="coral" data-slide-index="25"><div class="inner"><h2 class="sec quiz-slide-topic">Overfitting: when a tree memorises instead of learning</h2><div class="quiz" data-quiz="">
+<div class="quiz-head"><h4 style="color:#fff">Quiz — overfitting</h4><span class="score" data-score="" style="background:rgba(255,255,255,.16);color:#fff">0 / 3</span></div>
+<div class="q">
+<p class="q-text" style="color:#fff"><span class="qn" style="color:#ffb0bd">Q1.</span> Your tree scores 100% on training data and 64% on test data. What is happening?</p>
+<div class="opts">
+<button class="opt" data-correct="">It has overfitted — it memorised the training rows rather than learning the pattern</button>
+<button class="opt">It has underfitted and needs more depth</button>
+<button class="opt">The test set must be corrupted</button>
+<button class="opt">This is normal and expected for trees</button>
+</div>
+<div class="fb"><b>Classic overfitting.</b> A 36-point gap says the model learned the noise specific to your training rows. Reduce its flexibility.</div>
+</div>
+<div class="q">
+<p class="q-text" style="color:#fff"><span class="qn" style="color:#ffb0bd">Q2.</span> Which single parameter is the most direct lever against overfitting in a tree?</p>
+<div class="opts">
+<button class="opt">random_state</button>
+<button class="opt" data-correct="">max_depth</button>
+<button class="opt">criterion</button>
+<button class="opt">class_weight</button>
+</div>
+<div class="fb"><b><code>max_depth</code>.</b> It caps how many questions the tree may chain together, which directly caps its capacity to memorise. <code>random_state</code> only fixes reproducibility.</div>
+</div>
+<div class="q">
+<p class="q-text" style="color:#fff"><span class="qn" style="color:#ffb0bd">Q3.</span> A tree scores 68% on training and 67% on test. What is the problem?</p>
+<div class="opts">
+<button class="opt">Overfitting</button>
+<button class="opt" data-correct="">Underfitting — it is too simple to capture the pattern</button>
+<button class="opt">Nothing, this is an ideal model</button>
+<button class="opt">The training and test sets were swapped</button>
+</div>
+<div class="fb"><b>Underfitting.</b> The scores agree, which is good, but both are weak. The model is not learning enough. Loosen the constraints or improve the features.</div>
+</div>
+</div></div></section>
+<!-- ========================= 14. BIAS AND VARIANCE ========================= -->
+<section class="band plain slide" data-a="grape" data-slide-index="26">
+<div class="inner">
+<div class="eyebrow">The trade-off underneath</div>
+<h2 class="sec">Bias and variance, in dart-throwing terms</h2>
+<p class="lede">Underfitting and overfitting are two ends of one spectrum, and the classic way to picture it is a dartboard. Each dart is a model trained on a slightly different sample of data.</p>
+<div class="grid2 stack">
+<div class="card">
+<h4>High bias — a shallow tree</h4>
+<p>All the darts land tightly together, but well away from the bullseye. Retrain on new data and you get almost the same wrong answer every time.</p>
+<p style="margin-bottom:0">The model is consistent and consistently too simple. This is underfitting, and a tree of depth 1 — a "decision stump" — is the extreme case.</p>
+</div>
+<div class="card">
+<h4>High variance — a deep tree</h4>
+<p>The darts scatter all over the board. On average they surround the bullseye, but no individual throw can be trusted.</p>
+<p style="margin-bottom:0">Change a handful of training rows and you get a visibly different tree with different splits. This is overfitting, and it is a fully grown tree's natural state.</p>
+</div>
+</div>
+<div class="note">
+<span class="tagline">Why this matters specifically for trees</span>
+<p style="margin-bottom:0">Trees sit unusually far towards the high-variance end. Because the root split is chosen greedily, swapping a few rows can change the root — and once the root changes, every node beneath it changes too. One different question at the top can rewrite the whole tree. Remember this: it is the entire motivation for Random Forests.</p>
+</div>
+<div class="analogy">
+<h4>Two weather forecasters</h4>
+<p>One always says "22 degrees and partly cloudy" no matter the season. Reliable, and reliably wrong in December. That is bias.</p>
+<p style="margin-bottom:0">The other rewrites the forecast dramatically after every gust of wind. Sometimes brilliantly accurate, sometimes wildly off, and you can never tell which day you are getting. That is variance. A good model, like a good forecaster, sits between the two.</p>
+</div>
+
+</div>
+</section><section class="band plain quiz-slide slide" data-a="grape" data-slide-index="27"><div class="inner"><h2 class="sec quiz-slide-topic">Bias and variance, in dart-throwing terms</h2><div class="quiz" data-quiz="">
+<div class="quiz-head"><h4>Quiz — bias and variance</h4><span class="score" data-score="">0 / 2</span></div>
+<div class="q">
+<p class="q-text"><span class="qn">Q1.</span> A depth-1 decision stump on a complex dataset is an example of —</p>
+<div class="opts">
+<button class="opt" data-correct="">High bias, low variance</button>
+<button class="opt">Low bias, high variance</button>
+<button class="opt">High bias and high variance</button>
+<button class="opt">Low bias and low variance</button>
+</div>
+<div class="fb"><b>High bias, low variance.</b> A single question is far too simple to capture a complex pattern, but it is very stable — different samples of the data will mostly produce the same stump.</div>
+</div>
+<div class="q">
+<p class="q-text"><span class="qn">Q2.</span> You remove 5 rows from a 500-row training set and refit. The tree looks completely different. What does this demonstrate?</p>
+<div class="opts">
+<button class="opt">A bug in scikit-learn</button>
+<button class="opt" data-correct="">High variance — trees are unstable because a changed root rewrites everything beneath it</button>
+<button class="opt">High bias</button>
+<button class="opt">The data is not shuffled properly</button>
+</div>
+<div class="fb"><b>High variance, working as designed.</b> Greedy splitting means a small change can flip the root, and every descendant follows. Averaging many trees is the standard cure.</div>
+</div>
+</div></div></section>
+<!-- ========================= 15. PRUNING ========================= -->
+<section class="band tint slide" data-a="mint" data-slide-index="28">
+<div class="inner">
+<div class="eyebrow">The fix</div>
+<h2 class="sec">Pruning: stopping a tree from growing wild</h2>
+<p class="lede">Pruning means deliberately keeping the tree smaller than it wants to be. There are two moments at which you can intervene: <strong>while it grows</strong>, or <strong>after it has finished</strong>.</p>
+<div class="grid2 stack">
+<div>
+<div class="card">
+<h4>Pre-pruning, also called early stopping</h4>
+<p>Set rules up front and the tree simply refuses to grow past them. This is what you will use 90% of the time, because it is cheap and easy to reason about.</p>
+<ul class="plain" style="margin-bottom:.8rem">
+<li><code>max_depth</code> — the hard ceiling on levels</li>
+<li><code>min_samples_split</code> — refuse to split a node holding fewer than this many rows</li>
+<li><code>min_samples_leaf</code> — refuse any split that would create a leaf smaller than this</li>
+<li><code>max_leaf_nodes</code> — cap the total number of leaves</li>
+<li><code>min_impurity_decrease</code> — reject splits that barely help</li>
+</ul>
+<p style="margin-bottom:0"><strong>The catch:</strong> it is greedy about stopping too. It may cut off a branch that looked unpromising but would have led somewhere valuable one level further down.</p>
+</div>
+</div>
+<div>
+<div class="card">
+<h4>Post-pruning, also called cost-complexity pruning</h4>
+<p>Grow the tree fully, then work back up and remove subtrees that do not earn their keep. Each candidate removal is scored by how much accuracy it costs against how much simplicity it buys.</p>
+<p>In scikit-learn this is <code>ccp_alpha</code>. At <code>0.0</code> nothing is pruned; as you raise it, more and more subtrees collapse into leaves.</p>
+<p style="margin-bottom:0"><strong>The advantage:</strong> it sees the whole tree before deciding, so it does not mistakenly cut a branch that turned out to matter. The cost is that you grow a big tree first.</p>
+</div>
+</div>
+</div>
+<div class="note">
+<span class="tagline">When to reach for which</span>
+<p style="margin-bottom:.5rem"><strong>Use pre-pruning when —</strong> the dataset is large and growing a full tree first would be slow, you already have a rough sense of a sensible depth or leaf size, you need something explainable and want a hard, predictable limit on size, or you are doing quick iteration and want a cheap first guard against overfitting.</p>
+<p style="margin-bottom:0"><strong>Use post-pruning when —</strong> you want the best accuracy you can get and can afford to grow a full tree first, you are not sure in advance how much complexity the data actually needs, or you have already tried pre-pruning and suspect it is cutting off branches too early. In practice, many people do both: loose pre-pruning limits to keep training fast, then <code>ccp_alpha</code> for the final trim.</p>
+</div>
+<div class="analogy">
+<h4>Pruning an actual tree in your garden</h4>
+<p>A gardener does not cut branches at random. They remove the growth that is crowded, weak, or drawing energy without producing fruit. The tree ends up smaller and healthier, and next season it fruits better than the overgrown version would have.</p>
+<p style="margin-bottom:0">Same logic here. Those tiny leaves holding two rows each are branches drawing energy and producing noise. Cut them and the model generalises better, even though its training accuracy goes down.</p>
+</div>
+<div class="example">
+<span class="tagline">Finding a good ccp_alpha in practice</span>
+<p style="margin-bottom:0">Call <code>clf.cost_complexity_pruning_path(X_train, y_train)</code> to get the list of alpha values at which the tree structure actually changes. Fit one tree per alpha, plot training and test accuracy against alpha, and pick the value just before test accuracy starts to fall. It is a short loop and it usually beats guessing at <code>max_depth</code>.</p>
+</div>
+<div class="activity">
+<h4>Choose the intervention</h4>
+<p>For each situation, decide which parameter you would reach for first.</p>
+<p style="margin-bottom:.5rem"><strong>1.</strong> Your tree has 400 leaves and many hold a single row.<br/><strong>2.</strong> The tree is 22 levels deep and impossible to explain to a stakeholder.<br/><strong>3.</strong> Accuracy is fine but the tree keeps splitting on splits that reduce impurity by 0.0002.</p>
+<button class="btn ghost" onclick="toggleReveal('actAns4',this)">Show suggestions</button>
+<div class="reveal-body" id="actAns4">
+<div class="card flat">
+<p style="margin-bottom:.55rem"><strong>1 → <code>min_samples_leaf</code></strong>, set to something like 5 or 10. It directly forbids the single-row leaves that are the symptom here.</p>
+<p style="margin-bottom:.55rem"><strong>2 → <code>max_depth</code></strong>, set to 4 or 5. If the tree must be explainable to a human, depth is the constraint that matters most, sometimes more than accuracy.</p>
+<p style="margin-bottom:0"><strong>3 → <code>min_impurity_decrease</code></strong>, set to a small positive value such as 0.001. It filters out splits that are technically improvements but statistically meaningless.</p>
+</div>
+</div>
+</div>
+
+</div>
+</section><section class="band tint quiz-slide slide" data-a="mint" data-slide-index="29"><div class="inner"><h2 class="sec quiz-slide-topic">Pruning: stopping a tree from growing wild</h2><div class="quiz" data-quiz="">
+<div class="quiz-head"><h4>Quiz — pruning</h4><span class="score" data-score="">0 / 3</span></div>
+<div class="q">
+<p class="q-text"><span class="qn">Q1.</span> What is the essential difference between pre-pruning and post-pruning?</p>
+<div class="opts">
+<button class="opt">Pre-pruning is for classification, post-pruning is for regression</button>
+<button class="opt" data-correct="">Pre-pruning limits growth as the tree is built; post-pruning removes branches after it is fully grown</button>
+<button class="opt">Pre-pruning uses Gini, post-pruning uses entropy</button>
+<button class="opt">Post-pruning is always more accurate</button>
+</div>
+<div class="fb"><b>Timing is the difference.</b> Pre-pruning is cheaper because you never build the branches. Post-pruning is better informed because it can see the finished tree before deciding what to cut.</div>
+</div>
+<div class="q">
+<p class="q-text"><span class="qn">Q2.</span> What happens as you increase <code>ccp_alpha</code>?</p>
+<div class="opts">
+<button class="opt">The tree grows deeper</button>
+<button class="opt" data-correct="">More subtrees are pruned away, so the tree gets simpler</button>
+<button class="opt">Training accuracy increases</button>
+<button class="opt">Nothing — it only affects regression trees</button>
+</div>
+<div class="fb"><b>Higher alpha means more aggressive pruning.</b> At 0.0 the tree stays fully grown. As alpha rises, subtrees whose accuracy contribution does not justify their complexity are collapsed into leaves.</div>
+</div>
+<div class="q">
+<p class="q-text"><span class="qn">Q3.</span> After pruning, training accuracy drops from 100% to 92% while test accuracy rises from 70% to 87%. Was pruning worth it?</p>
+<div class="opts">
+<button class="opt">No, any drop in training accuracy is a loss</button>
+<button class="opt" data-correct="">Yes — test accuracy is what predicts real-world performance, and it improved substantially</button>
+<button class="opt">Impossible to judge without the Gini values</button>
+<button class="opt">Only if the tree is also shallower than before</button>
+</div>
+<div class="fb"><b>Clearly worth it.</b> Training accuracy measures memory; test accuracy measures usefulness. Trading 8 points of the first for 17 points of the second is exactly the trade pruning exists to make.</div>
+</div>
+</div></div></section>
+<!-- ========================= 16. IN SCIKIT-LEARN ========================= -->
+<section class="band alt slide" data-a="sky" data-slide-index="30">
+<div class="inner">
+<div class="eyebrow">From theory to code</div>
+<h2 class="sec">Building one in scikit-learn</h2>
+<p class="lede">Everything on this page so far happens inside about six lines of Python. Here is the whole workflow, with the pieces you have just learned marked in the comments.</p>
+<pre><span class="k">from</span> sklearn.datasets <span class="k">import</span> load_iris
+<span class="k">from</span> sklearn.model_selection <span class="k">import</span> train_test_split
+<span class="k">from</span> sklearn.tree <span class="k">import</span> DecisionTreeClassifier, plot_tree, export_text
+<span class="k">from</span> sklearn.metrics <span class="k">import</span> accuracy_score
+<span class="k">import</span> matplotlib.pyplot <span class="k">as</span> plt
+
+X, y = <span class="f">load_iris</span>(return_X_y=<span class="n">True</span>)
+
+<span class="c"># hold back 30% that the tree never sees during training</span>
+X_train, X_test, y_train, y_test = <span class="f">train_test_split</span>(
+    X, y, test_size=<span class="n">0.3</span>, random_state=<span class="n">42</span>, stratify=y
+)
+
+clf = <span class="f">DecisionTreeClassifier</span>(
+    criterion=<span class="s">"gini"</span>,      <span class="c"># or "entropy" — the impurity measure</span>
+    max_depth=<span class="n">4</span>,            <span class="c"># pre-pruning: hard ceiling on levels</span>
+    min_samples_split=<span class="n">10</span>,   <span class="c"># pre-pruning: need 10 rows to even try a split</span>
+    min_samples_leaf=<span class="n">5</span>,      <span class="c"># pre-pruning: no leaf smaller than 5 rows</span>
+    random_state=<span class="n">42</span>         <span class="c"># reproducible tie-breaking</span>
+)
+clf.<span class="f">fit</span>(X_train, y_train)
+
+<span class="c"># always score both — the gap between them is the story</span>
+<span class="f">print</span>(<span class="s">"train:"</span>, <span class="f">accuracy_score</span>(y_train, clf.<span class="f">predict</span>(X_train)))
+<span class="f">print</span>(<span class="s">"test :"</span>, <span class="f">accuracy_score</span>(y_test,  clf.<span class="f">predict</span>(X_test)))
+
+<span class="c"># read the tree as plain text, or draw it</span>
+<span class="f">print</span>(<span class="f">export_text</span>(clf, feature_names=<span class="f">list</span>(load_iris().feature_names)))
+<span class="f">plot_tree</span>(clf, filled=<span class="n">True</span>, feature_names=load_iris().feature_names)
+plt.<span class="f">show</span>()</pre>
+<div class="grid3 stack">
+<div class="card flat"><h4>fit</h4><p style="margin-bottom:0">Runs the recursive splitting we walked through. Everything — impurity scoring, threshold search, stopping rules — happens inside this one call.</p></div>
+<div class="card flat"><h4>predict</h4><p style="margin-bottom:0">Walks each row from root to leaf and returns the leaf's stored answer. Use <code>predict_proba</code> to get the class proportions inside the leaf instead.</p></div>
+<div class="card flat"><h4>export_text</h4><p style="margin-bottom:0">Prints the entire tree as indented if/else rules. The fastest way to sanity-check what your model actually learned.</p></div>
+</div>
+<div class="note">
+<span class="tagline">One habit worth forming</span>
+<p style="margin-bottom:0">Print both training and test accuracy every single time, not just test. A single test number tells you how good the model is; the <em>gap</em> tells you why, and what to change next. Most tuning decisions in this section come straight from reading that gap.</p>
+</div>
+<div class="activity">
+<h4>Predict the output before you run it</h4>
+<p>Suppose you delete <code>max_depth</code>, <code>min_samples_split</code> and <code>min_samples_leaf</code> from the code above, leaving only <code>criterion</code> and <code>random_state</code>. What will the two printed accuracies look like?</p>
+<button class="btn ghost" onclick="toggleReveal('actAns5',this)">Show what happens</button>
+<div class="reveal-body" id="actAns5">
+<div class="card flat">
+<p style="margin-bottom:.6rem"><strong>Training accuracy will be 1.0.</strong> With no limits, the tree splits until every leaf is pure, so it classifies every training row it has already seen perfectly.</p>
+<p style="margin-bottom:0"><strong>Test accuracy will drop.</strong> On Iris the fall is modest, since the dataset is small and clean — but on messier real data this is where a 30-point gap appears. Try it both ways and watch the numbers move.</p>
+</div>
+</div>
+</div>
+
+</div>
+</section><section class="band alt quiz-slide slide" data-a="sky" data-slide-index="31"><div class="inner"><h2 class="sec quiz-slide-topic">Building one in scikit-learn</h2><div class="quiz" data-quiz="">
+<div class="quiz-head"><h4>Quiz — the code</h4><span class="score" data-score="">0 / 2</span></div>
+<div class="q">
+<p class="q-text"><span class="qn">Q1.</span> Why do we hold back a test set before calling <code>fit</code>?</p>
+<div class="opts">
+<button class="opt">To make training faster</button>
+<button class="opt" data-correct="">So we can measure performance on rows the model has never seen</button>
+<button class="opt">Because scikit-learn requires it</button>
+<button class="opt">To reduce the number of features</button>
+</div>
+<div class="fb"><b>It is the only honest exam.</b> Scoring a model on data it trained on measures memory, not learning. Without a held-out set you cannot detect overfitting at all.</div>
+</div>
+<div class="q">
+<p class="q-text"><span class="qn">Q2.</span> What does <code>random_state=42</code> actually do here?</p>
+<div class="opts">
+<button class="opt">Improves accuracy by 42%</button>
+<button class="opt">Randomly drops rows during training</button>
+<button class="opt" data-correct="">Fixes the randomness used to break ties between equally good splits, so results are reproducible</button>
+<button class="opt">Sets the maximum depth to 42</button>
+</div>
+<div class="fb"><b>Reproducibility only.</b> When two splits score identically, something has to break the tie. Fixing the seed means you and your colleague get the same tree from the same data.</div>
+</div>
+</div></div></section>
+<!-- ========================= 17. HYPERPARAMETERS ========================= -->
+<section class="band plain slide" data-a="grape" data-slide-index="32">
+<div class="inner">
+<div class="eyebrow">The control panel</div>
+<h2 class="sec">Every knob, and what it does</h2>
+<p class="lede">You will meet these in every tree-based model you ever tune, including Random Forests and gradient boosting. Tap any one to open it.</p>
+<div class="grid2 stack">
+<div id="accLeft">
+<div class="acc-item"><button class="acc-head" onclick="toggleAcc(this)"><code>criterion</code><span class="arrow">›</span></button><div class="acc-body"><div class="in">Which impurity measure scores each split. <strong>gini</strong> (default), <strong>entropy</strong>, or <strong>log_loss</strong> for classification; <strong>squared_error</strong>, <strong>friedman_mse</strong>, <strong>absolute_error</strong> or <strong>poisson</strong> for regression. Rarely the parameter that decides your result.</div></div></div>
+<div class="acc-item"><button class="acc-head" onclick="toggleAcc(this)"><code>max_depth</code><span class="arrow">›</span></button><div class="acc-body"><div class="in">The hard ceiling on levels. Defaults to <strong>None</strong>, meaning unlimited, which is the single most common cause of an overfitted tree. Start around <strong>3 to 6</strong> and tune from there. If a human needs to read the tree, keep it at 4 or below.</div></div></div>
+<div class="acc-item"><button class="acc-head" onclick="toggleAcc(this)"><code>min_samples_split</code><span class="arrow">›</span></button><div class="acc-body"><div class="in">The minimum rows a node must hold before the tree is even allowed to consider splitting it. Default <strong>2</strong>, which is extremely permissive. Values of <strong>10 to 20</strong> are a reasonable starting point on real datasets. Accepts a float to mean a fraction of all rows.</div></div></div>
+<div class="acc-item"><button class="acc-head" onclick="toggleAcc(this)"><code>min_samples_leaf</code><span class="arrow">›</span></button><div class="acc-body"><div class="in">The minimum rows any resulting leaf must contain. Default <strong>1</strong>, which permits a leaf built from a single row — pure memorisation. Raising this to <strong>5 or more</strong> smooths the model and is often more effective than capping depth.</div></div></div>
+<div class="acc-item"><button class="acc-head" onclick="toggleAcc(this)"><code>max_features</code><span class="arrow">›</span></button><div class="acc-body"><div class="in">How many features to consider at each split. Default is all of them. Restricting it speeds up training on wide datasets and, crucially, is the mechanism that makes the trees inside a Random Forest different from one another.</div></div></div>
+</div>
+<div id="accRight">
+<div class="acc-item"><button class="acc-head" onclick="toggleAcc(this)"><code>max_leaf_nodes</code><span class="arrow">›</span></button><div class="acc-body"><div class="in">A direct cap on the total number of leaves. When set, the tree grows best-first rather than depth-first, expanding whichever node offers the largest impurity reduction. Useful when you care about total model size rather than depth.</div></div></div>
+<div class="acc-item"><button class="acc-head" onclick="toggleAcc(this)"><code>min_impurity_decrease</code><span class="arrow">›</span></button><div class="acc-body"><div class="in">A split only goes ahead if it reduces weighted impurity by at least this much. Default <strong>0.0</strong>, so any improvement counts however trivial. Setting <strong>0.001</strong> to <strong>0.01</strong> filters out cosmetic splits that only fit noise.</div></div></div>
+<div class="acc-item"><button class="acc-head" onclick="toggleAcc(this)"><code>ccp_alpha</code><span class="arrow">›</span></button><div class="acc-body"><div class="in">Post-pruning strength. Default <strong>0.0</strong> prunes nothing. Raise it and subtrees that do not pay for their complexity get collapsed into leaves. Pair it with <code>cost_complexity_pruning_path</code> to find sensible candidate values rather than guessing.</div></div></div>
+<div class="acc-item"><button class="acc-head" onclick="toggleAcc(this)"><code>class_weight</code><span class="arrow">›</span></button><div class="acc-body"><div class="in">Tells the tree to care more about an under-represented class. Set to <strong>"balanced"</strong> when, say, only 2% of your rows are fraud — otherwise the tree happily predicts "not fraud" for everything and reports 98% accuracy.</div></div></div>
+<div class="acc-item"><button class="acc-head" onclick="toggleAcc(this)"><code>random_state</code><span class="arrow">›</span></button><div class="acc-body"><div class="in">Fixes the randomness used when several splits score identically. It does not make the model better, only repeatable. Always set it in anything you intend to share or compare.</div></div></div>
+</div>
+</div>
+<div class="note">
+<span class="tagline">A sane tuning order</span>
+<p style="margin-bottom:0">Start with <code>max_depth</code>, since it moves the needle most. Then <code>min_samples_leaf</code>. Then, if the class balance is skewed, <code>class_weight</code>. Everything else is fine-tuning. Wrap the lot in <code>GridSearchCV</code> with cross-validation rather than adjusting one value at a time against a single test split — otherwise you slowly overfit to the test set yourself.</p>
+</div>
+
+</div>
+</section><section class="band plain quiz-slide slide" data-a="grape" data-slide-index="33"><div class="inner"><h2 class="sec quiz-slide-topic">Every knob, and what it does</h2><div class="quiz" data-quiz="">
+<div class="quiz-head"><h4>Quiz — parameters</h4><span class="score" data-score="">0 / 3</span></div>
+<div class="q">
+<p class="q-text"><span class="qn">Q1.</span> Your fraud dataset is 98% legitimate transactions and the tree predicts "legitimate" for everything. Which parameter helps most?</p>
+<div class="opts">
+<button class="opt">max_depth</button>
+<button class="opt" data-correct="">class_weight="balanced"</button>
+<button class="opt">random_state</button>
+<button class="opt">criterion="entropy"</button>
+</div>
+<div class="fb"><b><code>class_weight</code>.</b> It reweights the impurity calculation so that misclassifying a rare fraud case costs the tree far more than misclassifying a common legitimate one.</div>
+</div>
+<div class="q">
+<p class="q-text"><span class="qn">Q2.</span> What is the default value of <code>max_depth</code> in scikit-learn?</p>
+<div class="opts">
+<button class="opt">3</button>
+<button class="opt">10</button>
+<button class="opt" data-correct="">None — unlimited</button>
+<button class="opt">The number of features</button>
+</div>
+<div class="fb"><b><code>None</code>.</b> The tree grows until every leaf is pure. It is the most consequential default in the whole class, and the first thing to change on real data.</div>
+</div>
+<div class="q">
+<p class="q-text"><span class="qn">Q3.</span> Your tree has many leaves holding a single training row each. Which parameter targets that directly?</p>
+<div class="opts">
+<button class="opt">criterion</button>
+<button class="opt">max_features</button>
+<button class="opt" data-correct="">min_samples_leaf</button>
+<button class="opt">random_state</button>
+</div>
+<div class="fb"><b><code>min_samples_leaf</code>.</b> It forbids any split that would leave a leaf smaller than the value you set, which eliminates the single-row leaves at source.</div>
+</div>
+</div></div></section>
+<!-- ========================= 18. FEATURE IMPORTANCE + WHEN TO USE ========================= -->
+<section class="band tint slide" data-a="sun" data-slide-index="34">
+<div class="inner">
+<div class="eyebrow">What else you get for free</div>
+<h2 class="sec">Feature importance, strengths, and honest weaknesses</h2>
+<div class="grid2 lean stack" style="margin-top:1.4rem">
+<div>
+<p>Once fitted, <code>clf.feature_importances_</code> hands you an array telling you how much each feature contributed to reducing impurity across the entire tree, weighted by how many rows passed through each split. The values sum to 1.</p>
+<p>On our loan data the answer matches what we worked out by hand: Credit score did essentially all the work, and Income contributed almost nothing.</p>
+<div class="card">
+<h4>feature_importances_ on the loan data</h4>
+<div class="meter-row"><span class="lbl">Credit score</span><div class="meter" style="flex:1"><div class="meter-fill" style="width:100%;background:var(--mint)"></div></div><span class="num">1.00</span></div>
+<div class="meter-row" style="margin-bottom:0"><span class="lbl">Income</span><div class="meter" style="flex:1"><div class="meter-fill" style="width:0%;background:var(--coral)"></div></div><span class="num">0.00</span></div>
+</div>
+<div class="note">
+<span class="tagline">Read these numbers carefully</span>
+<p style="margin-bottom:0">Impurity-based importance is <strong>biased towards features with many distinct values</strong>. A customer ID column will look enormously important because it can split anything perfectly, while being completely useless for prediction. It also splits credit arbitrarily between two correlated features. When the stakes are real, cross-check with <code>permutation_importance</code>.</p>
+</div>
+</div>
+<div>
+<div class="btn-row">
+<button class="btn on" id="prosBtn" onclick="showPC('pros')">Strengths</button>
+<button class="btn" id="consBtn" onclick="showPC('cons')">Weaknesses</button>
+</div>
+<div id="pcPanel"></div>
+</div>
+</div>
+<h3 class="sub">Where a single tree is the right call</h3>
+<div class="grid3">
+<div class="card flat"><h4>Explainability is the point</h4><p style="margin-bottom:0">Credit decisions, medical triage, anything a regulator or a customer will ask you to justify in writing.</p></div>
+<div class="card flat"><h4>Mixed, messy features</h4><p style="margin-bottom:0">Numbers and categories side by side, wildly different scales, outliers you have not cleaned yet.</p></div>
+<div class="card flat"><h4>A fast first baseline</h4><p style="margin-bottom:0">Fit one in seconds, read the importances, and learn what your data actually contains before building anything sophisticated.</p></div>
+</div>
+<h3 class="sub">When to reach for something else instead</h3>
+<div class="grid3">
+<div class="card flat" style="border-left:3px solid var(--coral)"><h4>The relationship is smooth or linear</h4><p style="margin-bottom:0">A tree can only output flat, boxy steps. If y really does move proportionally with x, linear or logistic regression will fit it better with far less machinery.</p></div>
+<div class="card flat" style="border-left:3px solid var(--coral)"><h4>You need stable, low-variance predictions</h4><p style="margin-bottom:0">A single tree can change shape noticeably after a handful of rows are added or removed. Where consistency matters more than a whiteboard-friendly explanation, a Random Forest or gradient-boosted ensemble is the safer default.</p></div>
+<div class="card flat" style="border-left:3px solid var(--coral)"><h4>The data is very high-dimensional and sparse</h4><p style="margin-bottom:0">Text represented as thousands of rare word-count columns, for instance. Axis-parallel splits struggle to find signal one column at a time; linear models or naive Bayes usually do better.</p></div>
+<div class="card flat" style="border-left:3px solid var(--coral)"><h4>Raw accuracy is all that matters</h4><p style="margin-bottom:0">If nobody ever needs to see the logic and you just want the best possible score, an ensemble or a well-tuned gradient boosting library will almost always beat one tree.</p></div>
+<div class="card flat" style="border-left:3px solid var(--coral)"><h4>You need to extrapolate</h4><p style="margin-bottom:0">Predicting outside the range of values the tree was trained on — future years, prices beyond anything seen before — a tree just repeats its nearest leaf's answer. A model with an explicit trend term won't.</p></div>
+<div class="card flat" style="border-left:3px solid var(--coral)"><h4>Your dataset is tiny</h4><p style="margin-bottom:0">With very few rows a tree has almost nothing to generalise from and will latch onto noise. A simpler, more constrained model tends to be more reliable until you have more data.</p></div>
+</div>
+
+</div>
+</section><section class="band tint quiz-slide slide" data-a="sun" data-slide-index="35"><div class="inner"><h2 class="sec quiz-slide-topic">Feature importance, strengths, and honest weaknesses</h2><div class="quiz" data-quiz="">
+<div class="quiz-head"><h4>Quiz — importance and fit</h4><span class="score" data-score="">0 / 3</span></div>
+<div class="q">
+<p class="q-text"><span class="qn">Q1.</span> A customer ID column shows the highest feature importance in your tree. What is going on?</p>
+<div class="opts">
+<button class="opt">Customer ID genuinely predicts the target</button>
+<button class="opt" data-correct="">Impurity-based importance favours high-cardinality features, so a unique ID can split anything perfectly and looks important while being useless</button>
+<button class="opt">The importances were not normalised</button>
+<button class="opt">The tree needs more depth</button>
+</div>
+<div class="fb"><b>A well-known trap.</b> With one distinct value per row, an ID can carve the data into pure leaves and score beautifully on training data while carrying zero predictive signal. Drop identifier columns before fitting.</div>
+</div>
+<div class="q">
+<p class="q-text"><span class="qn">Q2.</span> Your relationship between x and y is a clean straight line. Which model is the better choice?</p>
+<div class="opts">
+<button class="opt">A deep decision tree</button>
+<button class="opt" data-correct="">Linear regression — a tree can only approximate a line with steps</button>
+<button class="opt">A pruned decision tree</button>
+<button class="opt">Either performs identically</button>
+</div>
+<div class="fb"><b>Use the simpler tool.</b> Trees cut axis-parallel boxes, so a diagonal or smooth relationship gets approximated by a staircase. Match the model to the shape of the pattern.</div>
+</div>
+<div class="q">
+<p class="q-text"><span class="qn">Q3.</span> You need to predict sales for a year further ahead than any year in your training data. Why is a decision tree a poor choice here?</p>
+<div class="opts">
+<button class="opt">Trees cannot handle a numeric target</button>
+<button class="opt" data-correct="">A tree can only repeat the stored value of its nearest leaf, so it cannot project a trend beyond the range it was trained on</button>
+<button class="opt">Trees require the target to be scaled first</button>
+<button class="opt">Trees always underfit time-based data</button>
+</div>
+<div class="fb"><b>No extrapolation.</b> Every leaf stores a fixed number learned from training rows. Outside that range, the tree just returns its closest leaf's answer instead of continuing a trend — a model with an explicit slope handles this far better.</div>
+</div>
+</div></div></section>
+<!-- ========================= 19. BEYOND ONE TREE ========================= -->
+<section class="band deep slide" data-a="sky" data-slide-index="36">
+<div class="inner">
+<div class="eyebrow">Where this leads next</div>
+<h2 class="sec">One tree is unstable. Many trees are not.</h2>
+<p class="lede" style="color:#c9d1f5">We saw that changing a handful of rows can rewrite an entire tree. That single weakness launched the most successful family of algorithms in applied machine learning.</p>
+<div class="grid3 stack">
+<div class="card">
+<h4>Bagging</h4>
+<p style="margin-bottom:0">Train many trees, each on a random sample of the rows drawn with replacement, then average their votes. Individual trees stay unstable; the average is far steadier.</p>
+</div>
+<div class="card">
+<h4>Random Forest</h4>
+<p style="margin-bottom:0">Bagging, plus each split is only allowed to consider a random subset of features. This stops every tree from picking the same dominant feature at the root and forces genuine diversity.</p>
+</div>
+<div class="card">
+<h4>Gradient Boosting</h4>
+<p style="margin-bottom:0">Trees built one after another, each correcting the errors of those before it. XGBoost, LightGBM and CatBoost all work this way, and they still win most competitions on tabular data.</p>
+</div>
+</div>
+<div class="analogy">
+<h4>One expert, or a room full of them</h4>
+<p style="margin-bottom:0">A single specialist gives you a confident answer that might be badly wrong. Ask fifty reasonably competent people independently and average their answers, and the individual errors tend to cancel while the shared signal survives. Random Forests are exactly this, with decision trees as the panel.</p>
+</div>
+<div class="note" style="border-left-color:#61a6ff;background:rgba(97,166,255,.15)">
+<span class="tagline" style="color:#a9c9ff">Why we studied one tree first</span>
+<p style="margin-bottom:0;color:#eef1ff">Every one of those methods is built from the exact machinery on this page: impurity, greedy splitting, depth, pruning. Understanding a single tree properly means Random Forests and boosting become variations on something familiar rather than new algorithms to memorise.</p>
+</div>
+
+<div class="widget stack" style="background:rgba(255,255,255,.06);border-color:rgba(255,255,255,.18)">
+<div class="widget-head"><span class="badge">TRY IT</span><h4 style="color:#fff">Watch a forest vote</h4></div>
+<p class="dim" style="margin-bottom:.6rem;color:#c9d1f5">Same applicant, seven slightly different trees. Each one grew from its own random sample of rows, so they don't always agree.</p>
+<svg viewBox="0 0 460 150" width="100%" id="forestSvg" aria-label="Seven trees casting individual votes"></svg>
+<div class="btn-row">
+<button class="btn" id="forestVoteBtn" type="button">🗳️ Cast the votes</button>
+</div>
+<div class="verdict" id="forestVerdict" style="display:none"></div>
+</div>
+
+</div>
+</section><section class="band deep quiz-slide slide" data-a="sky" data-slide-index="37"><div class="inner"><h2 class="sec quiz-slide-topic">One tree is unstable. Many trees are not.</h2><div class="quiz" data-quiz="">
+<div class="quiz-head"><h4 style="color:#fff">Quiz — beyond one tree</h4><span class="score" data-score="" style="background:rgba(255,255,255,.16);color:#fff">0 / 2</span></div>
+<div class="q">
+<p class="q-text" style="color:#fff"><span class="qn" style="color:#a9c9ff">Q1.</span> What problem with single trees does a Random Forest primarily solve?</p>
+<div class="opts">
+<button class="opt">Their slow prediction speed</button>
+<button class="opt" data-correct="">Their high variance — averaging many trees produces a far more stable model</button>
+<button class="opt">Their inability to handle categories</button>
+<button class="opt">Their need for feature scaling</button>
+</div>
+<div class="fb"><b>Variance reduction through averaging.</b> Each tree is still unstable, but their errors are partly independent, so combining them cancels much of the noise. The cost is losing the readable single decision path.</div>
+</div>
+<div class="q">
+<p class="q-text" style="color:#fff"><span class="qn" style="color:#a9c9ff">Q2.</span> How does gradient boosting differ from bagging?</p>
+<div class="opts">
+<button class="opt">It uses entropy instead of Gini</button>
+<button class="opt">It trains all trees simultaneously</button>
+<button class="opt" data-correct="">Trees are built sequentially, each one correcting the errors left by those before it</button>
+<button class="opt">It only works on regression problems</button>
+</div>
+<div class="fb"><b>Sequential correction versus parallel averaging.</b> Bagging trains independent trees and averages them; boosting trains each new tree specifically on what the current ensemble is still getting wrong.</div>
+</div>
+</div></div></section>
+<!-- ========================= 20. RECAP ========================= -->
+<section class="band alt slide" data-a="mint" data-slide-index="38">
+<div class="inner">
+<div class="eyebrow">Pulling it together</div>
+<h2 class="sec">The whole thing, on one screen</h2>
+<div class="grid2 lean stack">
+<div>
+<div class="card" style="padding:.9rem 1.1rem">
+<div class="checklist-item" onclick="toggleCheck(this)"><span class="check-box"></span><span class="ctext">A decision tree learns a chain of yes/no questions that separate data into increasingly pure groups</span></div>
+<div class="checklist-item" onclick="toggleCheck(this)"><span class="check-box"></span><span class="ctext">Root, internal node, branch, leaf and depth are the five words that describe its structure</span></div>
+<div class="checklist-item" onclick="toggleCheck(this)"><span class="check-box"></span><span class="ctext">Impurity measures how mixed a group is — Gini peaks at 0.5, entropy at 1.0 for two classes</span></div>
+<div class="checklist-item" onclick="toggleCheck(this)"><span class="check-box"></span><span class="ctext">At every node the tree tries every feature and every threshold, and keeps the largest impurity decrease</span></div>
+<div class="checklist-item" onclick="toggleCheck(this)"><span class="check-box"></span><span class="ctext">Numeric features are handled by testing midpoints between sorted neighbouring values — no scaling needed</span></div>
+<div class="checklist-item" onclick="toggleCheck(this)"><span class="check-box"></span><span class="ctext">Regression trees swap impurity for variance and store an average in each leaf</span></div>
+<div class="checklist-item" onclick="toggleCheck(this)"><span class="check-box"></span><span class="ctext">Unconstrained trees memorise: high training accuracy, poor test accuracy, high variance</span></div>
+<div class="checklist-item" onclick="toggleCheck(this)"><span class="check-box"></span><span class="ctext">Pre-pruning limits growth, post-pruning (ccp_alpha) trims a fully grown tree</span></div>
+<div class="checklist-item" onclick="toggleCheck(this)"><span class="check-box"></span><span class="ctext">Random Forests and boosting exist because a single tree is unstable</span></div>
+</div>
+<p class="hint">Tap any line to tick it off.</p>
+</div>
+<div>
+<div class="card">
+<h4>If you remember only three things</h4>
+<ol class="plain" style="margin-bottom:0">
+<li><strong>Trees ask the question that removes the most mess.</strong> Everything technical is a way of measuring "mess".</li>
+<li><strong>An unconstrained tree will memorise your data.</strong> Always set a depth or a minimum leaf size.</li>
+<li><strong>Always read the gap</strong> between training and test accuracy, not just the test number.</li>
+</ol>
+</div>
+<div class="card">
+<h4>Common mistakes to avoid</h4>
+<ul class="plain" style="margin-bottom:0">
+<li>Comparing a Gini value to an entropy value</li>
+<li>Leaving identifier columns in the feature set</li>
+<li>Reporting training accuracy as if it were performance</li>
+<li>Scaling features "just in case" — harmless, but a sign of a misunderstanding</li>
+<li>Tuning against a single test split until it is no longer a fair test</li>
+</ul>
+</div>
+</div>
+</div>
+
+</div>
+</section><section class="band alt quiz-slide slide" data-a="mint" data-slide-index="39"><div class="inner"><h2 class="sec quiz-slide-topic">The whole thing, on one screen</h2><div class="quiz" data-quiz="" style="margin-top:3rem">
+<div class="quiz-head"><h4>Final mixed quiz — six questions across everything</h4><span class="score" data-score="">0 / 6</span></div>
+<div class="q">
+<p class="q-text"><span class="qn">Q1.</span> A node holds 8 Yes and 2 No. What is its Gini impurity?</p>
+<div class="opts">
+<button class="opt">0.20</button>
+<button class="opt" data-correct="">0.32</button>
+<button class="opt">0.50</button>
+<button class="opt">0.64</button>
+</div>
+<div class="fb"><b>0.32.</b> 1 − (0.8² + 0.2²) = 1 − (0.64 + 0.04) = 0.32.</div>
+</div>
+<div class="q">
+<p class="q-text"><span class="qn">Q2.</span> Splitting a node produces two children with weighted impurity equal to the parent's. What should the tree do?</p>
+<div class="opts">
+<button class="opt">Take the split anyway, since smaller groups are always better</button>
+<button class="opt" data-correct="">Reject it — the gain is zero, so the split has taught it nothing</button>
+<button class="opt">Switch from Gini to entropy and retry</button>
+<button class="opt">Increase max_depth</button>
+</div>
+<div class="fb"><b>Zero gain, no split.</b> Exactly what happened with Income on our loan data: two smaller groups, the same mixture, no progress.</div>
+</div>
+<div class="q">
+<p class="q-text"><span class="qn">Q3.</span> Which of these does <em>not</em> reduce overfitting?</p>
+<div class="opts">
+<button class="opt">Lowering max_depth</button>
+<button class="opt">Raising min_samples_leaf</button>
+<button class="opt">Raising ccp_alpha</button>
+<button class="opt" data-correct="">Changing random_state</button>
+</div>
+<div class="fb"><b><code>random_state</code> only affects reproducibility.</b> It shifts which tree you get when splits tie, but does nothing to limit the tree's capacity to memorise.</div>
+</div>
+<div class="q">
+<p class="q-text"><span class="qn">Q4.</span> A numeric feature holds the values 10, 20, 20, 35 and 60 in a node. How many candidate thresholds are evaluated?</p>
+<div class="opts">
+<button class="opt">5</button>
+<button class="opt" data-correct="">3</button>
+<button class="opt">4</button>
+<button class="opt">10</button>
+</div>
+<div class="fb"><b>Three.</b> There are four <em>distinct</em> values — 10, 20, 35, 60 — giving three gaps and therefore three midpoints: 15, 27.5 and 47.5. The duplicate 20 adds no new cut point.</div>
+</div>
+<div class="q">
+<p class="q-text"><span class="qn">Q5.</span> Which statement about regression trees is true?</p>
+<div class="opts">
+<button class="opt">They use entropy to score splits</button>
+<button class="opt">Their leaves store the majority class</button>
+<button class="opt" data-correct="">They reduce variance and store the mean of their leaf's target values</button>
+<button class="opt">They cannot be pruned</button>
+</div>
+<div class="fb"><b>Variance in, mean out.</b> Gini and entropy have no meaning for continuous targets, so squared error takes their place, and each leaf predicts the average of the rows that reached it.</div>
+</div>
+<div class="q">
+<p class="q-text"><span class="qn">Q6.</span> Model A: 100% train, 62% test. Model B: 88% train, 85% test. Which would you deploy?</p>
+<div class="opts">
+<button class="opt">A, its training accuracy is perfect</button>
+<button class="opt" data-correct="">B, because its test accuracy is far higher and the gap is small</button>
+<button class="opt">Neither, both are unusable</button>
+<button class="opt">Whichever trained faster</button>
+</div>
+<div class="fb"><b>Model B, comfortably.</b> Model A has memorised its training set. Test performance is the only figure that predicts behaviour on tomorrow's data, and B wins it by 23 points with a healthy 3-point gap.</div>
+</div>
+</div></div></section>
+</main>
+<footer aria-label="Slide navigation" id="slideNav"><span class="nav-brand">Decision Trees</span><div class="nav-controls"><span class="nav-counter" id="slideCounter">1 / 40</span></div><span class="nav-hint">Use the ← → arrow keys to navigate</span></footer>
+<script>
+/* ============================================================
+   SHARED HELPERS
+   ============================================================ */
+function gini(a, b) {
+  var n = a + b;
+  if (n === 0) return 0;
+  var p = a / n, q = b / n;
+  return 1 - (p * p + q * q);
+}
+function entropy(a, b) {
+  var n = a + b;
+  if (n === 0) return 0;
+  var e = 0;
+  [a / n, b / n].forEach(function (p) { if (p > 0) e -= p * Math.log2(p); });
+  return e;
+}
+function dotsHTML(y, n) {
+  var s = '';
+  for (var i = 0; i < y; i++) s += '<span class="dot y"></span>';
+  for (var j = 0; j < n; j++) s += '<span class="dot n"></span>';
+  return s;
+}
+function f3(x) { return x.toFixed(3); }
+
+/* ============================================================
+   SLIDE DECK CONTROLLER
+   Each direct <section> of #doc is one slide. Only the active
+   slide is interactive/visible; #progress and the nav bar track
+   position through the deck instead of page scroll.
+   ============================================================ */
+(function () {
+  var slides = Array.prototype.slice.call(document.querySelectorAll('#doc > section'));
+  var total = slides.length;
+  if (!total) return;
+  var bar = document.getElementById('progress');
+  var counter = document.getElementById('slideCounter');
+  var prevBtn = document.getElementById('slidePrev');
+  var nextBtn = document.getElementById('slideNext');
+  var idx = 0;
+
+  function show(i, force) {
+    i = Math.max(0, Math.min(total - 1, i));
+    if (i === idx && !force) return;
+    slides.forEach(function (s, n) {
+      var active = n === i;
+      s.classList.toggle('active', active);
+      if (active) s.removeAttribute('inert'); else s.setAttribute('inert', '');
+    });
+    idx = i;
+    if (bar) bar.style.width = ((idx + 1) / total * 100) + '%';
+    if (counter) counter.textContent = (idx + 1) + ' / ' + total;
+    if (prevBtn) prevBtn.disabled = idx === 0;
+    if (nextBtn) nextBtn.disabled = idx === total - 1;
+    slides[idx].scrollTop = 0;
+    try { history.replaceState(null, '', '#s' + (idx + 1)); } catch (e) {}
+  }
+  function next() { show(idx + 1); }
+  function prev() { show(idx - 1); }
+
+  if (prevBtn) prevBtn.addEventListener('click', prev);
+  if (nextBtn) nextBtn.addEventListener('click', next);
+
+  document.addEventListener('keydown', function (ev) {
+    var tag = (ev.target && ev.target.tagName || '').toLowerCase();
+    if (tag === 'input' || tag === 'textarea' || ev.target.isContentEditable) return;
+    if (ev.key === 'ArrowRight' || ev.key === 'PageDown' || ev.key === ' ') { next(); ev.preventDefault(); }
+    else if (ev.key === 'ArrowLeft' || ev.key === 'PageUp') { prev(); ev.preventDefault(); }
+    else if (ev.key === 'Home') { show(0); ev.preventDefault(); }
+    else if (ev.key === 'End') { show(total - 1); ev.preventDefault(); }
+  });
+
+  var touchX = null, touchY = null;
+  document.addEventListener('touchstart', function (ev) {
+    touchX = ev.touches[0].clientX; touchY = ev.touches[0].clientY;
+  }, { passive: true });
+  document.addEventListener('touchend', function (ev) {
+    if (touchX === null) return;
+    var dx = ev.changedTouches[0].clientX - touchX;
+    var dy = ev.changedTouches[0].clientY - touchY;
+    if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.5) { dx < 0 ? next() : prev(); }
+    touchX = null; touchY = null;
+  }, { passive: true });
+
+  var m = /^#s(\d+)$/.exec(location.hash);
+  show(m ? (parseInt(m[1], 10) - 1) : 0, true);
+  document.body.classList.add('slides-ready');
+})();
+
+/* ============================================================
+   QUIZ ENGINE
+   ============================================================ */
+document.addEventListener('click', function (ev) {
+  var opt = ev.target.closest('.opt');
+  if (!opt || opt.disabled) return;
+  var q = opt.closest('.q');
+  var quiz = opt.closest('[data-quiz]');
+  if (!q || !quiz) return;
+
+  var opts = q.querySelectorAll('.opt');
+  var correct = q.querySelector('.opt[data-correct]');
+  var isRight = opt.hasAttribute('data-correct');
+
+  opts.forEach(function (o) { o.disabled = true; });
+  if (isRight) {
+    opt.classList.add('right');
+    opt.innerHTML += '<span class="mark">✓</span>';
+  } else {
+    opt.classList.add('wrong');
+    opt.innerHTML += '<span class="mark">✕</span>';
+    if (correct) {
+      correct.classList.add('right');
+      correct.innerHTML += '<span class="mark">✓</span>';
+    }
+  }
+  var fb = q.querySelector('.fb');
+  if (fb) fb.classList.add('show');
+  q.dataset.answered = isRight ? 'right' : 'wrong';
+
+  var total = quiz.querySelectorAll('.q').length;
+  var got = quiz.querySelectorAll('.q[data-answered="right"]').length;
+  var badge = quiz.querySelector('[data-score]');
+  if (badge) badge.textContent = got + ' / ' + total;
+});
+
+/* ============================================================
+   1. TWENTY QUESTIONS
+   ============================================================ */
+var QDATA = {
+  fur: { l: 'Has fur', r: 'No fur', ly: 6, ln: 5, ry: 4, rn: 5,
+         v: 'Eleven animals on one side, nine on the other, and both groups genuinely differ. This is the split a decision tree is hunting for — a big, meaningful division of the field.' },
+  golden: { l: 'Is a golden retriever', r: 'Everything else', ly: 1, ln: 0, ry: 9, rn: 10,
+            v: 'One animal eliminated, nineteen still on the table. A tree would score this split as almost worthless, because the big branch is just as confusing as before you asked.' },
+  legs: { l: 'More than two legs', r: 'Two or fewer', ly: 8, ln: 6, ry: 2, rn: 4,
+          v: 'A fair split — fourteen against six. Better than the golden retriever question, not as clean as fur. Real datasets are full of middling questions like this one.' }
+};
+function askQ(key) {
+  ['qFurBtn', 'qGoldBtn', 'qLegBtn'].forEach(function (id) {
+    var b = document.getElementById(id); if (b) b.classList.remove('on');
+  });
+  var map = { fur: 'qFurBtn', golden: 'qGoldBtn', legs: 'qLegBtn' };
+  var btn = document.getElementById(map[key]); if (btn) btn.classList.add('on');
+
+  var d = QDATA[key];
+  document.getElementById('qResult').style.display = '';
+  document.getElementById('qVerdict').style.display = '';
+  document.getElementById('qLeftLbl').textContent = d.l + ' (' + (d.ly + d.ln) + ')';
+  document.getElementById('qRightLbl').textContent = d.r + ' (' + (d.ry + d.rn) + ')';
+  document.getElementById('qLeftDots').innerHTML = dotsHTML(d.ly, d.ln);
+  document.getElementById('qRightDots').innerHTML = dotsHTML(d.ry, d.rn);
+  document.getElementById('qLeftSm').textContent = d.ly + ' land animals, ' + d.ln + ' others';
+  document.getElementById('qRightSm').textContent = d.ry + ' land animals, ' + d.rn + ' others';
+  document.getElementById('qVerdict').textContent = d.v;
+  document.getElementById('qHint').textContent = 'Try the other questions and compare how lopsided each split is.';
+}
+
+/* ============================================================
+   2. ANATOMY HIGHLIGHT
+   ============================================================ */
+(function () {
+  var legend = document.getElementById('anatomyLegend');
+  var svg = document.getElementById('anatomySvg');
+  if (!legend || !svg) return;
+  var parts = svg.querySelectorAll('.part');
+
+  function clear() {
+    legend.querySelectorAll('.legend-item').forEach(function (i) { i.classList.remove('on'); });
+    parts.forEach(function (p) {
+      p.classList.remove('dim', 'lit');
+      if (p.dataset.part === 'depth') p.setAttribute('opacity', '0');
+      if (p.tagName.toLowerCase() === 'line' && p.dataset.part === 'branch') p.classList.remove('lit');
+    });
+  }
+  function show(name) {
+    clear();
+    legend.querySelector('.legend-item[data-part="' + name + '"]').classList.add('on');
+    parts.forEach(function (p) {
+      if (p.dataset.part === name) {
+        p.classList.add('lit');
+        if (name === 'depth') p.setAttribute('opacity', '1');
+      } else if (p.dataset.part !== 'depth') {
+        p.classList.add('dim');
+      }
+    });
+  }
+  legend.querySelectorAll('.legend-item').forEach(function (item) {
+    item.addEventListener('mouseenter', function () { show(item.dataset.part); });
+    item.addEventListener('click', function () { show(item.dataset.part); });
+  });
+  legend.addEventListener('mouseleave', clear);
+})();
+
+/* ============================================================
+   3. TREE WALK
+   ============================================================ */
+function walkTree(choice) {
+  var good = choice === 'good';
+  ['walkGood', 'walkBad'].forEach(function (id) {
+    var b = document.getElementById(id); if (b) b.classList.remove('on');
+  });
+  var b = document.getElementById(good ? 'walkGood' : 'walkBad'); if (b) b.classList.add('on');
+
+  document.getElementById('wLineL').classList.toggle('lit', good);
+  document.getElementById('wLineR').classList.toggle('lit', !good);
+  document.getElementById('wLeafGood').classList.toggle('dim', !good);
+  document.getElementById('wLeafBad').classList.toggle('dim', good);
+  document.getElementById('wLeafGood').classList.toggle('lit', good);
+  document.getElementById('wLeafBad').classList.toggle('lit', !good);
+  document.getElementById('wRoot').classList.add('lit');
+  document.getElementById('walkNote').innerHTML = good
+    ? 'Root asks "Credit score?" → answer is <strong>Good</strong> → left branch → leaf says <strong>Approved</strong>. One question, done.'
+    : 'Root asks "Credit score?" → answer is <strong>Bad</strong> → right branch → leaf says <strong>Rejected</strong>. One question, done.';
+}
+
+/* ============================================================
+   5. SPLIT COMPARISON
+   ============================================================ */
+var SPLITS = {
+  income: {
+    left: { name: 'Income = High', rows: '1, 2, 3, 7', y: 2, n: 2 },
+    right: { name: 'Income = Low', rows: '4, 5, 6, 8', y: 2, n: 2 },
+    v: 'Both children are still 50/50. Weighted Gini stays at 0.500 — exactly where we started. This question was a wasted turn.'
+  },
+  credit: {
+    left: { name: 'Credit = Good', rows: '1, 2, 4, 8', y: 4, n: 0 },
+    right: { name: 'Credit = Bad', rows: '3, 5, 6, 7', y: 0, n: 4 },
+    v: 'Both children are completely pure. Weighted Gini drops from 0.500 to 0.000 — the whole problem is solved by one question.'
+  }
+};
+function showSplit(key) {
+  document.getElementById('splitIncomeBtn').classList.toggle('on', key === 'income');
+  document.getElementById('splitCreditBtn').classList.toggle('on', key === 'credit');
+  var s = SPLITS[key];
+  var html = '';
+  [s.left, s.right].forEach(function (br) {
+    html += '<div class="branch"><h5>' + br.name + '</h5>' +
+      '<div class="dots">' + dotsHTML(br.y, br.n) + '</div>' +
+      '<div class="sm">Rows ' + br.rows + ' &middot; <span class="chip y">' + br.y + ' Yes</span> <span class="chip n">' + br.n + ' No</span><br>' +
+      'Gini = <strong>' + f3(gini(br.y, br.n)) + '</strong></div></div>';
+  });
+  document.getElementById('splitBranches').innerHTML = html;
+  var w = (4 / 8) * gini(s.left.y, s.left.n) + (4 / 8) * gini(s.right.y, s.right.n);
+  document.getElementById('splitVerdict').innerHTML =
+    'Weighted Gini after the split = <strong>' + f3(w) + '</strong> &nbsp;·&nbsp; ' + s.v;
+}
+
+/* ============================================================
+   6. IMPURITY PLAYGROUND
+   ============================================================ */
+(function () {
+  var sl = document.getElementById('impSlider');
+  if (!sl) return;
+  function upd() {
+    var y = +sl.value, n = 10 - y;
+    document.getElementById('impVal').textContent = y;
+    document.getElementById('impDots').innerHTML = dotsHTML(y, n);
+    var g = gini(y, n), e = entropy(y, n);
+    document.getElementById('impGiniBar').style.width = (g / 0.5 * 100) + '%';
+    document.getElementById('impEntBar').style.width = (e * 100) + '%';
+    document.getElementById('impGiniNum').textContent = f3(g);
+    document.getElementById('impEntNum').textContent = f3(e);
+    var note;
+    if (g === 0) note = 'Perfectly pure. Nothing left to split — this node becomes a leaf.';
+    else if (g >= 0.48) note = 'Maximum confusion. A coin flip would do just as well as this node.';
+    else if (g <= 0.2) note = 'Nearly pure. You would guess the majority label and be right most of the time.';
+    else note = 'Mixed, but leaning one way. A good split could still clean this up.';
+    document.getElementById('impNote').textContent = note;
+  }
+  sl.addEventListener('input', upd);
+  upd();
+})();
+
+/* ============================================================
+   7. GINI STEP-THROUGH
+   ============================================================ */
+var CALC = [
+  { t: 'Baseline — all 8 rows', b: '4 Yes, 4 No → Gini = 1 &minus; (0.5² + 0.5²) = <strong>0.500</strong>' },
+  { t: 'Income = High (rows 1, 2, 3, 7)', b: '2 Yes, 2 No → Gini = <strong>0.500</strong>' },
+  { t: 'Income = Low (rows 4, 5, 6, 8)', b: '2 Yes, 2 No → Gini = <strong>0.500</strong>' },
+  { t: 'Weighted score for Income', b: '(4/8 × 0.500) + (4/8 × 0.500) = <strong>0.500</strong> → gain of <strong>0.000</strong>' },
+  { t: 'Credit = Good (rows 1, 2, 4, 8)', b: '4 Yes, 0 No → Gini = <strong>0.000</strong>' },
+  { t: 'Credit = Bad (rows 3, 5, 6, 7)', b: '0 Yes, 4 No → Gini = <strong>0.000</strong>' },
+  { t: 'Weighted score for Credit score', b: '(4/8 × 0.000) + (4/8 × 0.000) = <strong>0.000</strong> → gain of <strong>0.500</strong>' },
+  { t: 'Decision', b: 'Credit score wins with a gain of 0.500 against 0.000. It becomes the root.' }
+];
+var calcAt = 0;
+function renderCalc() {
+  var host = document.getElementById('calcSteps');
+  if (!host) return;
+  if (calcAt === 0) { host.innerHTML = '<p class="hint" style="margin-top:0">Press <strong>Next step</strong> to reveal the calculation one line at a time.</p>'; return; }
+  var html = '';
+  for (var i = 0; i < calcAt; i++) {
+    html += '<div class="card flat" style="margin-top:.7rem"><h4 style="margin-bottom:.3rem">' + CALC[i].t + '</h4><div class="calc">' + CALC[i].b + '</div></div>';
+  }
+  host.innerHTML = html;
+}
+function stepCalc(dir) {
+  if (dir === 0) calcAt = 0;
+  else if (dir === -1) calcAt = Math.min(CALC.length, calcAt + 1);
+  else calcAt = Math.max(0, calcAt - 1);
+  renderCalc();
+}
+renderCalc();
+
+/* ============================================================
+   10. NUMERIC THRESHOLD PICKER
+   ============================================================ */
+var NUM = [
+  { x: 22, y: 0 }, { x: 28, y: 0 }, { x: 35, y: 1 }, { x: 41, y: 0 },
+  { x: 52, y: 1 }, { x: 60, y: 1 }, { x: 75, y: 0 }, { x: 90, y: 1 }
+];
+var THR = [];
+for (var ti = 0; ti < NUM.length - 1; ti++) THR.push((NUM[ti].x + NUM[ti + 1].x) / 2);
+
+function weightedGiniAt(t) {
+  var ly = 0, ln = 0, ry = 0, rn = 0;
+  NUM.forEach(function (p) {
+    if (p.x <= t) { p.y ? ly++ : ln++; } else { p.y ? ry++ : rn++; }
+  });
+  var nL = ly + ln, nR = ry + rn, n = NUM.length;
+  return { ly: ly, ln: ln, ry: ry, rn: rn, nL: nL, nR: nR,
+           w: (nL / n) * gini(ly, ln) + (nR / n) * gini(ry, rn) };
+}
+(function () {
+  var sl = document.getElementById('thrSlider');
+  if (!sl) return;
+  var best = 0, bestW = 99;
+  THR.forEach(function (t, i) { var r = weightedGiniAt(t); if (r.w < bestW - 1e-9) { bestW = r.w; best = i; } });
+
+  function drawLine(t) {
+    var svg = document.getElementById('numLine');
+    var lo = 10, hi = 100, W = 400, pad = 26;
+    function sx(v) { return pad + (v - lo) / (hi - lo) * (W - 2 * pad); }
+    var s = '<line x1="' + pad + '" y1="52" x2="' + (W - pad) + '" y2="52" stroke="rgba(140,148,180,.55)" stroke-width="2"/>';
+    NUM.forEach(function (p) {
+      s += '<circle cx="' + sx(p.x) + '" cy="52" r="8" fill="' + (p.y ? '#0eab74' : '#ff4d68') + '"/>';
+      s += '<text x="' + sx(p.x) + '" y="78" text-anchor="middle" font-size="10" fill="#8b93ad">' + p.x + '</text>';
+    });
+    s += '<line x1="' + sx(t) + '" y1="18" x2="' + sx(t) + '" y2="66" stroke="#f0980c" stroke-width="3" stroke-dasharray="5 3"/>';
+    s += '<text x="' + sx(t) + '" y="13" text-anchor="middle" font-size="11" fill="#f0980c">' + t + '</text>';
+    svg.innerHTML = s;
+  }
+  function upd() {
+    var i = +sl.value, t = THR[i], r = weightedGiniAt(t);
+    document.getElementById('thrVal').textContent = t;
+    drawLine(t);
+    document.getElementById('thrLeftLbl').textContent = 'income ≤ ' + t + '  (' + r.nL + ' rows)';
+    document.getElementById('thrRightLbl').textContent = 'income > ' + t + '  (' + r.nR + ' rows)';
+    document.getElementById('thrLeftDots').innerHTML = dotsHTML(r.ly, r.ln);
+    document.getElementById('thrRightDots').innerHTML = dotsHTML(r.ry, r.rn);
+    document.getElementById('thrLeftSm').innerHTML = r.ly + ' approved, ' + r.ln + ' rejected → Gini <strong>' + f3(gini(r.ly, r.ln)) + '</strong>';
+    document.getElementById('thrRightSm').innerHTML = r.ry + ' approved, ' + r.rn + ' rejected → Gini <strong>' + f3(gini(r.ry, r.rn)) + '</strong>';
+    var msg = 'Weighted Gini = <strong>' + f3(r.w) + '</strong> (baseline was 0.500). ';
+    msg += (i === best)
+      ? 'This is the best cut-off available — the tree would choose <code>income ≤ ' + t + '</code>.'
+      : 'Keep sliding: a better cut-off exists at <strong>' + THR[best] + '</strong>, scoring ' + f3(bestW) + '.';
+    document.getElementById('thrVerdict').innerHTML = msg;
+  }
+  sl.addEventListener('input', upd);
+  upd();
+})();
+
+/* ============================================================
+   11. ALGORITHM STEP-THROUGH
+   ============================================================ */
+var GROW = [
+  { t: 'Start at the root', b: 'Place all training rows into a single node. Measure its impurity — this is the baseline everything is judged against.' },
+  { t: 'Search every candidate split', b: 'For each feature, and for each possible cut-off within that feature, split the rows in two and compute the weighted impurity of the children.' },
+  { t: 'Keep the best one', b: 'Choose the split with the largest impurity decrease. Store it on the node as its question, for example <code>credit_score == "Good"</code>.' },
+  { t: 'Create two children', b: 'Send the rows that satisfy the condition to the left child and the rest to the right child. No row goes to both.' },
+  { t: 'Recurse', b: 'Run this exact same procedure on the left child, then on the right child, then on their children, and so on down.' },
+  { t: 'Stop when a rule fires', b: 'Halt at a node when it is pure, when it is too small to split, when max_depth is reached, or when the best available gain is too small to bother with.' },
+  { t: 'Label the leaves', b: 'For classification, store the majority class in each leaf. For regression, store the mean of the target values that landed there. The tree is now trained.' }
+];
+var growAt = 0;
+function renderGrow() {
+  var host = document.getElementById('growSteps');
+  if (!host) return;
+  if (growAt === 0) { host.innerHTML = '<p class="hint" style="margin-top:0">Press <strong>Next</strong> to build the algorithm up one line at a time.</p>'; return; }
+  var html = '<ol class="plain" style="margin-top:.9rem">';
+  for (var i = 0; i < growAt; i++) html += '<li><strong>' + GROW[i].t + '</strong><br>' + GROW[i].b + '</li>';
+  html += '</ol>';
+  if (growAt === GROW.length) html += '<div class="verdict">That is the entire training algorithm. Everything else — pruning, forests, boosting — is built on top of these seven lines.</div>';
+  host.innerHTML = html;
+}
+function growStep(dir) {
+  if (dir === 0) growAt = 0; else growAt = Math.min(GROW.length, growAt + 1);
+  renderGrow();
+}
+renderGrow();
+
+/* ============================================================
+   12. REGRESSION SPLIT
+   ============================================================ */
+var HOUSE = [
+  { s: 800, p: 40 }, { s: 950, p: 46 }, { s: 1100, p: 52 },
+  { s: 1600, p: 88 }, { s: 1750, p: 94 }, { s: 1900, p: 100 }
+];
+var HTHR = [];
+for (var hi = 0; hi < HOUSE.length - 1; hi++) HTHR.push((HOUSE[hi].s + HOUSE[hi + 1].s) / 2);
+
+function sse(arr) {
+  if (!arr.length) return 0;
+  var m = arr.reduce(function (a, b) { return a + b; }, 0) / arr.length;
+  return arr.reduce(function (a, b) { return a + (b - m) * (b - m); }, 0);
+}
+function meanOf(arr) {
+  return arr.length ? arr.reduce(function (a, b) { return a + b; }, 0) / arr.length : 0;
+}
+(function () {
+  var sl = document.getElementById('regSlider');
+  if (!sl) return;
+  var total = sse(HOUSE.map(function (h) { return h.p; }));
+  var best = 0, bestE = Infinity;
+  HTHR.forEach(function (t, i) {
+    var L = HOUSE.filter(function (h) { return h.s <= t; }).map(function (h) { return h.p; });
+    var R = HOUSE.filter(function (h) { return h.s > t; }).map(function (h) { return h.p; });
+    var e = sse(L) + sse(R);
+    if (e < bestE - 1e-9) { bestE = e; best = i; }
+  });
+  function upd() {
+    var i = +sl.value, t = HTHR[i];
+    var L = HOUSE.filter(function (h) { return h.s <= t; }).map(function (h) { return h.p; });
+    var R = HOUSE.filter(function (h) { return h.s > t; }).map(function (h) { return h.p; });
+    document.getElementById('regVal').textContent = t;
+    document.getElementById('regLeft').innerHTML = 'Prices: ' + L.join(', ') + '<br>Predicts <strong>₹' + meanOf(L).toFixed(1) + 'L</strong> · error ' + sse(L).toFixed(1);
+    document.getElementById('regRight').innerHTML = 'Prices: ' + R.join(', ') + '<br>Predicts <strong>₹' + meanOf(R).toFixed(1) + 'L</strong> · error ' + sse(R).toFixed(1);
+    var e = sse(L) + sse(R);
+    var msg = 'Squared error before splitting: <strong>' + total.toFixed(1) + '</strong> → after: <strong>' + e.toFixed(1) + '</strong>. ';
+    msg += (i === best)
+      ? 'This is the best available cut. The tree splits at <code>size ≤ ' + t + '</code> and the two leaves become tight, confident groups.'
+      : 'A better cut exists at <strong>' + HTHR[best] + '</strong>, which brings the error down to ' + bestE.toFixed(1) + '.';
+    document.getElementById('regVerdict').innerHTML = msg;
+  }
+  sl.addEventListener('input', upd);
+  upd();
+})();
+
+/* ============================================================
+   13. DEPTH / OVERFITTING
+   ============================================================ */
+var TRAIN = [0.72, 0.79, 0.85, 0.89, 0.93, 0.96, 0.98, 0.99, 1.00, 1.00, 1.00, 1.00];
+var TEST = [0.70, 0.77, 0.83, 0.86, 0.87, 0.86, 0.84, 0.81, 0.79, 0.78, 0.78, 0.78];
+(function () {
+  var sl = document.getElementById('depthSlider');
+  if (!sl) return;
+  var svg = document.getElementById('depthChart');
+  var W = 420, H = 210, padL = 38, padR = 14, padT = 14, padB = 30;
+
+  function px(i) { return padL + i / 11 * (W - padL - padR); }
+  function py(v) { return padT + (1 - (v - 0.6) / 0.42) * (H - padT - padB); }
+
+  function draw(d) {
+    var s = '';
+    [0.7, 0.8, 0.9, 1.0].forEach(function (g) {
+      s += '<line x1="' + padL + '" y1="' + py(g) + '" x2="' + (W - padR) + '" y2="' + py(g) + '" stroke="rgba(255,255,255,.14)" stroke-width="1"/>';
+      s += '<text x="' + (padL - 7) + '" y="' + (py(g) + 4) + '" text-anchor="end" font-size="10" fill="#a6b0d2">' + Math.round(g * 100) + '%</text>';
+    });
+    ['train', 'test'].forEach(function (which) {
+      var arr = which === 'train' ? TRAIN : TEST;
+      var col = which === 'train' ? '#61a6ff' : '#ff7b8e';
+      var pts = arr.map(function (v, i) { return px(i) + ',' + py(v); }).join(' ');
+      s += '<polyline points="' + pts + '" fill="none" stroke="' + col + '" stroke-width="2.5" stroke-linejoin="round"/>';
+      s += '<circle cx="' + px(d - 1) + '" cy="' + py(arr[d - 1]) + '" r="5.5" fill="' + col + '" stroke="#141a35" stroke-width="2"/>';
+    });
+    s += '<line x1="' + px(d - 1) + '" y1="' + padT + '" x2="' + px(d - 1) + '" y2="' + (H - padB) + '" stroke="#ffb545" stroke-width="2" stroke-dasharray="4 3"/>';
+    s += '<text x="' + px(4) + '" y="' + (H - 8) + '" text-anchor="middle" font-size="10" fill="#a6b0d2">max_depth →</text>';
+    s += '<text x="' + (W - padR) + '" y="' + py(TRAIN[11]) + '" text-anchor="end" font-size="10" fill="#61a6ff" dy="-8">training</text>';
+    s += '<text x="' + (W - padR) + '" y="' + py(TEST[11]) + '" text-anchor="end" font-size="10" fill="#ff7b8e" dy="16">test</text>';
+    svg.innerHTML = s;
+  }
+  function upd() {
+    var d = +sl.value;
+    document.getElementById('depthVal').textContent = d;
+    var tr = TRAIN[d - 1], te = TEST[d - 1], gap = tr - te;
+    document.getElementById('trainBar').style.width = (tr * 100) + '%';
+    document.getElementById('testBar').style.width = (te * 100) + '%';
+    document.getElementById('trainNum').textContent = Math.round(tr * 100) + '%';
+    document.getElementById('testNum').textContent = Math.round(te * 100) + '%';
+    var msg;
+    if (d <= 2) msg = 'Underfitting. Both scores are low — the tree is too simple to capture the pattern at all.';
+    else if (d <= 5) msg = 'The sweet spot. Test accuracy peaks around depth 5, and the gap is a healthy ' + Math.round(gap * 100) + ' points.';
+    else if (d <= 8) msg = 'Overfitting is starting. Training keeps climbing while test has begun to fall. Gap: ' + Math.round(gap * 100) + ' points.';
+    else msg = 'Badly overfitted. Training is perfect and test has collapsed. A ' + Math.round(gap * 100) + '-point gap means memorisation, not learning.';
+    document.getElementById('depthVerdict').textContent = msg;
+    draw(d);
+  }
+  sl.addEventListener('input', upd);
+  upd();
+})();
+
+/* ============================================================
+   17. ACCORDION
+   ============================================================ */
+function toggleAcc(btn) {
+  var item = btn.closest('.acc-item');
+  var wasOpen = item.classList.contains('open');
+  document.querySelectorAll('.acc-item.open').forEach(function (i) { i.classList.remove('open'); });
+  if (!wasOpen) item.classList.add('open');
+}
+
+/* ============================================================
+   18. PROS / CONS
+   ============================================================ */
+var PC = {
+  pros: [
+    '<strong>Readable by humans.</strong> You can draw the model on a whiteboard and a non-technical stakeholder will follow it.',
+    '<strong>Almost no preprocessing.</strong> No scaling, no normalisation, and outliers cause little trouble.',
+    '<strong>Handles numbers and categories together</strong> without separate treatment.',
+    '<strong>Fast to train and very fast to predict</strong> — a handful of comparisons per row.',
+    '<strong>Captures interactions automatically.</strong> A branch that asks about income only after credit score has already encoded a relationship between the two.',
+    '<strong>Feature importance comes free</strong> with the fitted model.'
+  ],
+  cons: [
+    '<strong>Overfits enthusiastically</strong> if you do not constrain depth or leaf size.',
+    '<strong>High variance.</strong> Change a few rows and you can get a visibly different tree.',
+    '<strong>Only axis-parallel cuts.</strong> A diagonal boundary has to be approximated with a staircase of many splits.',
+    '<strong>Poor at smooth or linear relationships</strong>, where a linear model wins with far less machinery.',
+    '<strong>Biased importance scores</strong> towards features with many distinct values.',
+    '<strong>Struggles to extrapolate.</strong> Ask about a value beyond the training range and it returns the nearest leaf\'s stored answer, unchanged.'
+  ]
+};
+function showPC(which) {
+  document.getElementById('prosBtn').classList.toggle('on', which === 'pros');
+  document.getElementById('consBtn').classList.toggle('on', which === 'cons');
+  var html = '<div class="card"><ul class="plain" style="margin-bottom:0">';
+  PC[which].forEach(function (t) { html += '<li>' + t + '</li>'; });
+  html += '</ul>';
+  if (which === 'cons') {
+    html += '<p class="dim" style="margin-top:1rem;margin-bottom:0">Every one of these weaknesses except the last two is largely fixed by combining many trees — which is exactly why Random Forests and gradient boosting exist.</p>';
+  }
+  html += '</div>';
+  document.getElementById('pcPanel').innerHTML = html;
+}
+showPC('pros');
+
+/* ============================================================
+   SHARED UI
+   ============================================================ */
+function toggleReveal(id, btn) {
+  var el = document.getElementById(id);
+  if (!el) return;
+  if (btn && !btn.dataset.label) btn.dataset.label = btn.textContent;
+  var open = el.classList.toggle('open');
+  if (btn) btn.textContent = open ? 'Hide answer' : btn.dataset.label;
+}
+function toggleCheck(el) { el.classList.toggle('done'); }
+
+/* copy buttons on code blocks */
+document.querySelectorAll('pre').forEach(function (pre) {
+  var b = document.createElement('button');
+  b.className = 'copy-btn';
+  b.type = 'button';
+  b.textContent = 'Copy';
+  b.addEventListener('click', function () {
+    var txt = pre.innerText.replace(/^Copy\n?/, '');
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(txt).then(function () {
+        b.textContent = 'Copied';
+        setTimeout(function () { b.textContent = 'Copy'; }, 1400);
+      });
+    }
+  });
+  pre.appendChild(b);
+});
+
+/* ============================================================
+   NEW. GINI vs ENTROPY CURVE
+   ============================================================ */
+(function () {
+  var svg = document.getElementById('gieChart');
+  var sl = document.getElementById('gieSlider');
+  if (!svg || !sl) return;
+  var W = 460, H = 230, padL = 40, padR = 14, padT = 16, padB = 34;
+
+  function giniP(p) { return 1 - (p * p + (1 - p) * (1 - p)); }
+  function entP(p) {
+    var e = 0;
+    [p, 1 - p].forEach(function (v) { if (v > 0) e -= v * Math.log2(v); });
+    return e;
+  }
+  function px(p) { return padL + p * (W - padL - padR); }
+  function py(v) { return padT + (1 - v) * (H - padT - padB); }
+
+  function curve(fn) {
+    var pts = [];
+    for (var i = 0; i <= 40; i++) { var p = i / 40; pts.push(px(p) + ',' + py(fn(p))); }
+    return pts.join(' ');
+  }
+
+  function draw(pPct) {
+    var p = pPct / 100;
+    var s = '';
+    [0, 0.25, 0.5, 0.75, 1].forEach(function (g) {
+      s += '<line x1="' + padL + '" y1="' + py(g) + '" x2="' + (W - padR) + '" y2="' + py(g) + '" stroke="var(--rule)" stroke-width="1"/>';
+      s += '<text x="' + (padL - 8) + '" y="' + (py(g) + 4) + '" text-anchor="end" font-size="10" style="fill:var(--dim)">' + g.toFixed(2) + '</text>';
+    });
+    s += '<text x="' + padL + '" y="' + (H - 8) + '" font-size="10" style="fill:var(--dim)">p = 0</text>';
+    s += '<text x="' + (W - padR) + '" y="' + (H - 8) + '" text-anchor="end" font-size="10" style="fill:var(--dim)">p = 1</text>';
+
+    s += '<polyline points="' + curve(function (v) { return entP(v); }) + '" fill="none" stroke="var(--coral)" stroke-width="2.5"/>';
+    s += '<polyline points="' + curve(function (v) { return giniP(v); }) + '" fill="none" stroke="var(--sky)" stroke-width="2.5"/>';
+
+    s += '<circle cx="' + px(p) + '" cy="' + py(entP(p)) + '" r="5.5" fill="var(--coral)" stroke="var(--panel)" stroke-width="2"/>';
+    s += '<circle cx="' + px(p) + '" cy="' + py(giniP(p)) + '" r="5.5" fill="var(--sky)" stroke="var(--panel)" stroke-width="2"/>';
+    s += '<line x1="' + px(p) + '" y1="' + padT + '" x2="' + px(p) + '" y2="' + (H - padB) + '" stroke="var(--rule-strong)" stroke-width="1.5" stroke-dasharray="4 3"/>';
+
+    s += '<text x="' + (W - padR) + '" y="' + (py(1) + 4) + '" text-anchor="end" font-size="11" style="fill:var(--coral)" font-weight="700">entropy</text>';
+    s += '<text x="' + (W - padR) + '" y="' + (py(0.5) - 8) + '" text-anchor="end" font-size="11" style="fill:var(--sky)" font-weight="700">gini</text>';
+    svg.innerHTML = s;
+
+    document.getElementById('gieVal').textContent = p.toFixed(2);
+    document.getElementById('gieGiniVal').textContent = giniP(p).toFixed(3);
+    document.getElementById('gieEntVal').textContent = entP(p).toFixed(3);
+  }
+  sl.addEventListener('input', function () { draw(+sl.value); });
+  draw(+sl.value);
+})();
+
+/* ============================================================
+   NEW. FOREST VOTE
+   ============================================================ */
+(function () {
+  var svg = document.getElementById('forestSvg');
+  var btn = document.getElementById('forestVoteBtn');
+  if (!svg || !btn) return;
+  var N = 7;
+  var W = 460, H = 150;
+  var gap = W / N;
+
+  function treeSvg(x, state) {
+    var cx = x + gap / 2;
+    var col = state === 'y' ? '#0eab74' : state === 'n' ? '#ff4d68' : '#8b93ad';
+    var fillOp = state ? '.85' : '.35';
+    return '' +
+      '<g class="forest-tree" data-x="' + cx + '">' +
+      '<line x1="' + cx + '" y1="34" x2="' + (cx - 16) + '" y2="60" stroke="' + col + '" stroke-width="2.5" opacity="' + fillOp + '"/>' +
+      '<line x1="' + cx + '" y1="34" x2="' + (cx + 16) + '" y2="60" stroke="' + col + '" stroke-width="2.5" opacity="' + fillOp + '"/>' +
+      '<circle cx="' + cx + '" cy="26" r="14" fill="' + col + '" opacity="' + fillOp + '"/>' +
+      '<circle cx="' + (cx - 16) + '" cy="66" r="9" fill="' + col + '" opacity="' + fillOp + '"/>' +
+      '<circle cx="' + (cx + 16) + '" cy="66" r="9" fill="' + col + '" opacity="' + fillOp + '"/>' +
+      '<rect x="' + (cx - 2.5) + '" y="60" width="5" height="16" fill="#a89b7e" opacity="' + fillOp + '"/>' +
+      '<text x="' + cx + '" y="99" text-anchor="middle" font-size="9.5" style="fill:#c9d1f5">Tree ' + (Math.round((x / gap) + 1)) + '</text>' +
+      '<text class="forest-mark" x="' + cx + '" y="124" text-anchor="middle" font-size="20" font-weight="900" style="fill:' + col + '">' +
+      (state === 'y' ? '✓' : state === 'n' ? '✕' : '') + '</text>' +
+      '<text x="' + cx + '" y="141" text-anchor="middle" font-size="8.5" font-weight="800" style="fill:' + col + '">' +
+      (state === 'y' ? 'Approve' : state === 'n' ? 'Reject' : '') + '</text>' +
+      '</g>';
+  }
+
+  function render(states) {
+    var s = '';
+    for (var i = 0; i < N; i++) s += treeSvg(i * gap, states ? states[i] : null);
+    svg.innerHTML = s;
+  }
+  render(null);
+
+  btn.addEventListener('click', function () {
+    btn.disabled = true;
+    var states = new Array(N).fill(null);
+    render(states);
+    var revealed = 0;
+    var interval = setInterval(function () {
+      // biased so the forest usually reaches a clear majority, like a real ensemble
+      states[revealed] = Math.random() < 0.72 ? 'y' : 'n';
+      revealed++;
+      render(states);
+      if (revealed >= N) {
+        clearInterval(interval);
+        var yes = states.filter(function (v) { return v === 'y'; }).length;
+        var no = N - yes;
+        var verdict = document.getElementById('forestVerdict');
+        verdict.style.display = 'block';
+        verdict.innerHTML = '<strong>Forest says: ' + (yes > no ? 'Approve' : 'Reject') +
+          '</strong> &mdash; ' + yes + ' of ' + N + ' trees voted Approve. ' +
+          'No single tree\'s mistake can overrule the majority; that is the whole point of the panel.';
+        btn.disabled = false;
+      }
+    }, 260);
+  });
+})();
+
+/* No scroll-gated entrance animation: this page has to survive being embedded in
+   an LMS iframe, projected, printed and captured, and anything that starts content
+   at opacity 0 risks leaving it invisible in those contexts. */
+
+/* initial paint */
+showSplit('credit');
+
+</script>
+</body>
+</html>
